@@ -34,7 +34,20 @@ Mercury: tools shown at 90% target        –      –      –    2.3    5.0
 dense:   tools shown at 90% target      8.7   16.2   26.5   43.1   83.7
 ```
 
-Raising K from 50 to 100 adds 8 points of prefilter recall but only one more correct top-1, and doubles Mercury's set size. Mercury's accuracy on the steps it already saw is unchanged; the added steps are harder. A larger K alone does not fix the prefilter. Full numbers are in [`RESULTS.md`](RESULTS.md) and `results/`.
+Raising K from 50 to 100 adds 8 points of prefilter recall but only one more correct top-1, and doubles Mercury's set size. Mercury's accuracy on the steps it already saw is unchanged; the added steps are harder. A larger K alone does not fix the prefilter.
+
+**Better prefilters** (literature review and tests, RESULTS.md section 6). Recall@50 on ToolRet's code + customized catalogs (2,731 requests), which the tool-trained models were not trained on:
+
+```
+prefilter                                    recall@50   vs current        CPU ms/query
+BM25 + MiniLM (current)                        0.504         –                   9
+  + expanded tool docs                         0.525     +0.021                  9
+BM25 + LFM2.5-Embedding-350M + expanded        0.530     +0.026                158
+ToolRet-trained bge-base + expanded            0.560     +0.056                 57
+Tool-Embed-0.6B + expanded                     0.593     +0.089                355
+```
+
+Tool-trained embedders ([ToolRet](https://arxiv.org/abs/2503.01763), [Tool-DE](https://arxiv.org/abs/2510.22670)) help most. Document expansion (LLM-written tool profiles, built offline) helps every prefilter at no query-time cost. General embedders help little on their own: LFM2.5-350M adds +0.010 (not significant), and Nemotron-3-Embed-1B adds +0.031 on the customized catalog at 488 ms per query. Agent-written tool requests are the largest remaining lever: ToolRet's instruction adds +0.107 on all of ToolRet, though that is an upper bound. Full numbers are in [`RESULTS.md`](RESULTS.md) and `results/`.
 
 ## Setup
 
@@ -59,12 +72,13 @@ One decision-model request scores one agent step in either mode. Responses are c
 | Phase 1 with the decision model (Mercury Decide; 47 calls with these flags) | `.venv/bin/python scripts/run_phase1.py --max-steps 59 --single-tool-only --sources bm25,dense,hybrid,ce,mercury-choice` | OpenRouter |
 | Phase 1 at scale | `.venv/bin/python scripts/run_phase1.py --max-steps 1200 --sources bm25,dense,hybrid,ce,ce-pred,mercury-choice,mercury-predicate` | OpenRouter |
 | Prefilter K sweep: prefilter recall and final results (dense + Mercury Decide) at each K; `--api-k-values` picks the K values Mercury runs at | `.venv/bin/python scripts/run_k_sweep.py --max-steps 59 --single-tool-only --encoder sentence-transformers/multi-qa-MiniLM-L6-cos-v1 --k-values 10,20,30,50,100 --api-k-values 100` | OpenRouter |
+| Prefilter benchmark: recall@K of BM25, embedders, expanded tool docs (no API calls) | `.venv/bin/python scripts/run_prefilter_bench.py --tag code_customized --categories code,customized --queries query --encoders sentence-transformers/multi-qa-MiniLM-L6-cos-v1,Lux1997/Tool-Embed-0.6B` | no |
 | Phase 3, RQ3/RQ4: drift, shift, poisoned descriptions | `.venv/bin/python scripts/run_stress.py --source ce` | no (OpenRouter with `--source mercury-choice`) |
 | Phase 2 proxy, RQ2: agent success per token by exposure condition | `.venv/bin/python scripts/run_phase2_proxy.py --max-steps 1500 --n-steps 300` | OpenRouter + agent chat model |
 | Phase 4, RQ5: latency of adding risk questions to the same call | `.venv/bin/python scripts/run_governance.py --max-steps 1500 --n-steps 20` | OpenRouter |
 | LangChain agent demo | `.venv/bin/python scripts/demo_agent.py` | no (scripted agent); yes for a real agent |
 
-Each script writes `results/<phase>/report.md`, JSON and figures. Every API response is cached in `cache/*.jsonl`, so reruns cost nothing. On a slow network, `HF_HUB_DISABLE_XET=1` makes Hugging Face downloads use plain HTTPS.
+To run any phase with the stronger prefilter, add `--encoder Lux1997/Tool-Embed-0.6B --tool-docs expanded`. Each script writes `results/<phase>/report.md`, JSON and figures. Every API response is cached in `cache/*.jsonl`, so reruns cost nothing. On a slow network, `HF_HUB_DISABLE_XET=1` makes Hugging Face downloads use plain HTTPS.
 
 Cost: Mercury Decide's `:free` variant costs $0; Phase 1 sends about 2.7k input tokens per call at K = 50. If you use the OpenAI Decisions API instead, 1,500 steps cost about $0.45 per mode at $0.10/M input tokens.
 

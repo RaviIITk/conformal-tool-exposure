@@ -7,5 +7,6 @@ __pycache__/
 .pytest_cache/
 # Regenerable experiment artifacts (large or noisy)
 results/**/probs.npz
+results/**/ranks.npz
 results/logs/
 .DS_Store

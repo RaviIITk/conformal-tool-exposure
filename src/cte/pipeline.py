@@ -9,7 +9,7 @@ from pathlib import Path
 
 import numpy as np
 
-from .data import Catalog, Step, load_toolret
+from .data import Catalog, Step, expand_tool_docs, load_toolret
 from .experiment import choose_k, dev_split, stratified_sample
 from .retrieval import Encoder, HybridPrefilter, Pool, build_pool
 from .scorers import CalibratedSource, CrossEncoderLogits, feature_logits
@@ -26,6 +26,8 @@ def add_common_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--ce-model", default="cross-encoder/ms-marco-MiniLM-L6-v2")
     p.add_argument("--max-steps", type=int, default=None, help="stratified sample of ToolRet steps")
     p.add_argument("--single-tool-only", action="store_true", help="keep only steps with one gold tool")
+    p.add_argument("--tool-docs", choices=("toolret", "expanded"), default="toolret",
+                   help="tool documents: as in ToolRet, or with Tool-REX profiles appended (document expansion)")
     p.add_argument("--k", type=int, default=None, help="prefilter K (default: chosen on dev)")
     p.add_argument("--k-grid", default="20,50,100")
     p.add_argument("--dev-frac", type=float, default=0.2)
@@ -47,6 +49,8 @@ class Setup:
 
 def build_setup(args) -> Setup:
     catalogs, steps = load_toolret(args.data)
+    if getattr(args, "tool_docs", "toolret") == "expanded":
+        catalogs = expand_tool_docs(catalogs, args.data)
     if getattr(args, "single_tool_only", False):
         steps = [s for s in steps if len(s.gold) == 1]
     steps = stratified_sample(steps, args.max_steps, args.seed)

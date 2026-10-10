@@ -28,23 +28,32 @@ class Encoder:
     """Sentence-transformers bi-encoder with an on-disk embedding cache."""
 
     def __init__(self, model_name: str, cache_dir: Path, device: str | None = None, batch_size: int = 64,
-                 max_seq_length: int = 256):
+                 max_seq_length: int = 256, trust_remote_code: bool = False):
         from sentence_transformers import SentenceTransformer
 
         self.name = model_name
-        self.model = SentenceTransformer(model_name, device=device or default_device())
+        self.model = SentenceTransformer(model_name, device=device or default_device(),
+                                         trust_remote_code=trust_remote_code)
+        if self.model.device.type == "cpu":
+            self.model.float()  # bf16/fp16 checkpoints run many times slower on CPUs without native bf16
         self.model.max_seq_length = max_seq_length
         self.batch_size = batch_size
-        # Instruction-tuned embedders (e.g. Qwen3-Embedding) take a task instruction on queries.
-        self.query_prompt = None
-        if "query" in (self.model.prompts or {}):
-            self.model.prompts["query"] = TOOL_QUERY_INSTRUCTION
+        # Asymmetric embedders take a query prompt and sometimes a document prompt (e.g. LFM2.5:
+        # "query: " / "document: "). Instruction-tuned ones (e.g. Qwen3-Embedding) take a task
+        # instruction on queries, which is replaced by a tool-retrieval one.
+        prompts = self.model.prompts or {}
+        self.query_prompt = self.doc_prompt = None
+        if prompts.get("query"):
+            if prompts["query"].startswith("Instruct:"):
+                prompts["query"] = TOOL_QUERY_INSTRUCTION
             self.query_prompt = "query"
+        if prompts.get("document"):
+            self.doc_prompt = "document"
         dim = self.model.get_embedding_dimension()
         self.cache = ArrayCache(cache_dir / f"emb_{model_name.replace('/', '__')}.npz", dim)
 
     def encode(self, texts: list[str], is_query: bool = False) -> np.ndarray:
-        prompt = self.query_prompt if is_query else None
+        prompt = self.query_prompt if is_query else self.doc_prompt
         keys = [text_key(t, self.model.prompts[prompt]) if prompt else text_key(t) for t in texts]
         out, missing = self.cache.get_many(keys)
         if missing:

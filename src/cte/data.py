@@ -10,12 +10,14 @@ from __future__ import annotations
 import json
 import re
 import urllib.request
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 import pandas as pd
 
 TOOLRET_URL = "https://huggingface.co/datasets/mangopy/{repo}/resolve/main/{path}"
+# Tool-REX / Tool-DE (arXiv 2510.22670): the same ToolRet tools with LLM-written profiles.
+TOOLREX_URL = "https://huggingface.co/datasets/Lux1997/Tool-REX-Tools/resolve/main/{cat}/tools-00000-of-00001.parquet"
 CATEGORIES = ("web", "code", "customized")
 SUBSETS = (
     "apibank", "apigen", "appbench", "autotools-food", "autotools-music",
@@ -140,6 +142,32 @@ def load_steps(root: Path, catalogs: dict[str, Catalog]) -> list[Step]:
             if gold and all(g in cat.index for g in gold):
                 steps.append(Step(row.id, _clean(row.query), gold, s, row.category))
     return steps
+
+
+def expand_tool_docs(catalogs: dict[str, Catalog], root: Path) -> dict[str, Catalog]:
+    """Document expansion: append each tool's Tool-REX profile (function, when to use, tags).
+
+    The profiles were generated from the tool documents alone (no queries or labels).
+    """
+    out = {}
+    for cat, catalog in catalogs.items():
+        dest = root / "toolrex" / f"{cat}.parquet"
+        if not dest.exists():
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            urllib.request.urlretrieve(TOOLREX_URL.format(cat=cat), dest)
+        df = pd.read_parquet(dest)
+        profiles = {}
+        for tid, doc in zip(df["id"], df["documentation"]):
+            doc = json.loads(doc)
+            tp = doc.get("tool_profile") if isinstance(doc, dict) else None
+            if isinstance(tp, dict):
+                parts = [f"Function: {tp['function']}." if tp.get("function") else "",
+                         f"Use when: {tp['when_to_use']}." if tp.get("when_to_use") else "",
+                         f"Tags: {', '.join(map(str, tp['tags']))}." if tp.get("tags") else ""]
+                profiles[tid] = " ".join(p for p in parts if p)
+        out[cat] = Catalog([replace(t, description=f"{t.description} {profiles[t.id]}".strip())
+                            if profiles.get(t.id) else t for t in catalog.tools])
+    return out
 
 
 def load_toolret(root: Path) -> tuple[dict[str, Catalog], list[Step]]:

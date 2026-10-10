@@ -1,6 +1,6 @@
 # Results so far (10 Oct 2026)
 
-All runs use ToolRet (7,961 steps, 44,453 tools). The Stage-1 prefilter is BM25 + `multi-qa-MiniLM-L6-cos-v1` fused with RRF, K = 50 (section 5 varies K). The decision model is Inception Mercury Decide on OpenRouter (free tier). Detailed tables and figures are in each `results/**/report.md`.
+All runs use ToolRet (7,961 steps, 44,453 tools). The Stage-1 prefilter is BM25 + `multi-qa-MiniLM-L6-cos-v1` fused with RRF, K = 50 (section 5 varies K; section 6 tests stronger prefilters). The decision model is Inception Mercury Decide on OpenRouter (free tier). Detailed tables and figures are in each `results/**/report.md`.
 
 ## 1. Tests
 
@@ -39,7 +39,7 @@ All runs use ToolRet (7,961 steps, 44,453 tools). The Stage-1 prefilter is BM25 
 |---|---|---|---|
 | dev recall (all gold tools in top-K) | 0.37 | 0.46 | 0.51 |
 
-End to end, q̂ = ∞ for every α ≤ 0.2 and every score source, so the set is all 50 tools. Coverage is then capped at recall: **0.62** for single-tool steps and 0.28 for multi-tool steps. No Stage-2 scorer can fix this, so a stronger prefilter is the main lever. Options: Qwen3-Embedding-0.6B (encoding paused at 8k/44k tools, resumable with `scripts/warm_embeddings.py`) or toolrank.
+End to end, q̂ = ∞ for every α ≤ 0.2 and every score source, so the set is all 50 tools. Coverage is then capped at recall: **0.62** for single-tool steps and 0.28 for multi-tool steps. No Stage-2 scorer can fix this, so a stronger prefilter is the main lever; section 6 reviews and tests the options.
 
 ## 4. Decision model smoke test (H1), 47 Mercury Decide calls
 
@@ -84,7 +84,57 @@ End to end, q̂ = ∞ for every α ≤ 0.2 and every score source, so the set is
 - **Usage at K = 100:** about 5.3k input tokens per call (2.7k at K = 50), median latency 0.9 s, 0 refusals.
 - n = 47 (32 at Stage 2), so treat these as signals, not results. A larger K alone does not fix the prefilter; a stronger Stage-1 retriever is still the main lever (section 3).
 
-## 6. Stress tests (RQ3/RQ4), hybrid score source, ~1,080 single-tool test steps
+## 6. Better prefilters: literature review and tests
+
+The prefilter caps end-to-end coverage (sections 3 and 5), so this section looks for a stronger Stage 1. `scripts/run_prefilter_bench.py` measures recall@K (all gold tools in the top K) with no API calls. `results/prefilter/*/report.md`.
+
+**What the literature suggests**
+
+| approach | idea | reported result | tested here |
+|---|---|---|---|
+| Tool-trained embedders: ToolRet-train ([Shi et al., ACL Findings 2025](https://arxiv.org/abs/2503.01763)) | fine-tune retrievers on 200k tool-retrieval tasks | bge-base NDCG@10 on ToolRet 22.1 → 29.4 (their Table 14) | `ToolRet-trained-bge-base-en-v1.5` |
+| Document expansion + tool-trained embedder: Tool-DE / Tool-Embed ([Lu et al., 2025](https://arxiv.org/abs/2510.22670)) | LLM-written tool profiles (function, when to use, tags); embedder trained on them | Tool-Embed-0.6B +4.97 NDCG@10 over its base, Qwen3-Embedding-0.6B (43.13); Tool-Embed-4B best on ToolRet and Tool-DE | expanded docs (Tool-REX); `Tool-Embed-0.6B` |
+| Query-side intent: Re-Invoke ([Chen et al., EMNLP Findings 2024](https://arxiv.org/abs/2408.01875)); MCP-Zero ([Fei et al., 2025](https://arxiv.org/abs/2506.01056)) | an LLM extracts the tool intent, or the agent writes a structured tool request | Re-Invoke +20% nDCG@5 single-tool, +39% multi-tool (ToolE); MCP-Zero 98% fewer tokens on APIBank | upper bound only (ToolRet instruction) |
+| Usage-based tool embeddings: Tool2Vec ([Moon et al., 2024](https://arxiv.org/abs/2409.02141)) | embed tools from example queries, not descriptions | up to +27.28 Recall@K on ToolBench | no: needs usage queries per tool |
+| Graph / completeness: COLT ([Qu et al., CIKM 2024](https://arxiv.org/abs/2405.16089)) | collaborative learning over query–scene–tool graphs, for multi-tool sets | gains on ToolLens and open benchmarks | no: needs training |
+| Reranking the candidates: Tool-Rank ([Lu et al., 2025](https://arxiv.org/abs/2510.22670)) | LLM reranker over the top 100 | +4.21 NDCG@10 over Tool-Embed-4B | no: 4B on CPU; Mercury already reranks at Stage 2 |
+| General embedders (suggested): LFM2.5-Embedding-350M, Nemotron-3-Embed-1B | – | – | both, run locally |
+
+**Test 1: full ToolRet** (7,961 steps, 44,453 tools; `results/prefilter/full/report.md`). BM25 and MiniLM, original vs expanded tool docs. Tool texts are cut at 600 characters here, so the baseline differs slightly from sections 2–5.
+
+| prefilter | docs | R@10 | R@50 | R@100 | R@50 single-tool | R@50 multi-tool |
+|---|---|---|---|---|---|---|
+| BM25 | ToolRet | 0.28 | 0.404 | 0.46 | 0.55 | 0.23 |
+| BM25 | expanded | 0.32 | 0.469 | 0.53 | 0.59 | 0.32 |
+| BM25 + MiniLM, RRF (current) | ToolRet | 0.34 | 0.493 | 0.55 | 0.65 | 0.30 |
+| BM25 + MiniLM, RRF | expanded | **0.37** | **0.528** | **0.59** | **0.67** | **0.35** |
+| *oracle:* BM25 + MiniLM + ToolRet instruction | ToolRet | 0.44 | 0.599 | 0.66 | 0.79 | 0.37 |
+| *oracle:* BM25 + MiniLM + ToolRet instruction | expanded | 0.47 | 0.635 | 0.70 | 0.81 | 0.43 |
+
+**Test 2: tool-trained and general embedders** on the code + customized catalogs (2,731 steps, 7,161 tools; `results/prefilter/code_customized/report.md`). These two catalogs were chosen because the tool-trained models' training data does not cover them: Tool-Embed's training queries share a 12-word span with 0% of code and 0.6% of customized steps, but with 10% of web steps (mostly ToolBench and APIGen), and ToolRet-train is built from ToolACE, ToolBench and APIGen, which are all web. Every model runs locally in fp32 on 4 CPU cores. Latency is the time to encode one query on that CPU.
+
+| prefilter | docs | R@10 | R@50 | R@100 | R@50 single-tool | ΔR@50 vs current [95% CI] | params | query ms (CPU) |
+|---|---|---|---|---|---|---|---|---|
+| BM25 + MiniLM, RRF (current) | ToolRet | 0.35 | 0.504 | 0.56 | 0.62 | – | 23M | 9 |
+| BM25 + MiniLM, RRF | expanded | 0.37 | 0.525 | 0.58 | 0.65 | +0.021 [+0.012, +0.030] | 23M | 9 |
+| BM25 + LFM2.5-Embedding-350M, RRF | ToolRet | 0.36 | 0.514 | 0.57 | 0.63 | +0.010 [−0.002, +0.022] | 354M | 158 |
+| BM25 + LFM2.5-Embedding-350M, RRF | expanded | 0.38 | 0.530 | 0.59 | 0.65 | +0.026 [+0.013, +0.039] | 354M | 158 |
+| BM25 + ToolRet-trained bge-base, RRF | ToolRet | 0.38 | 0.544 | 0.59 | 0.67 | +0.040 [+0.029, +0.051] | 109M | 57 |
+| ToolRet-trained bge-base (dense) | expanded | 0.39 | 0.560 | 0.62 | 0.69 | +0.056 [+0.042, +0.070] | 109M | 57 |
+| Tool-Embed-0.6B (dense) | ToolRet | **0.42** | 0.585 | 0.64 | 0.67 | +0.081 [+0.064, +0.098] | 596M | 355 |
+| **Tool-Embed-0.6B (dense)** | **expanded** | 0.40 | **0.593** | **0.65** | **0.70** | **+0.089 [+0.072, +0.106]** | 596M | 355 |
+
+On the customized catalog alone (982 steps; `results/prefilter/customized/report.md`), Nemotron-3-Embed-1B reaches R@50 0.437 with BM25 (+0.031 [+0.014, +0.048] over the current 0.406), below LFM2.5 (0.451) and Tool-Embed (0.482, dense), at 488 ms per query.
+
+- **A tool-trained embedder is the largest gain we can deploy.** Tool-Embed-0.6B raises R@50 from 0.504 to 0.593 and single-tool R@50 from 0.62 to 0.70, as the Tool-DE paper predicts. Fusing it with BM25 adds nothing: dense alone is as good or better.
+- **The most efficient upgrade is the ToolRet-trained bge-base with expanded docs.** It gets about 60% of Tool-Embed's gain (+0.056) at a sixth of the CPU cost (57 ms per query, 109M parameters).
+- **Document expansion costs nothing at query time and always helps.** The profiles are written once per tool, offline. They add +0.036 [+0.030, +0.042] R@50 to the current prefilter on all of ToolRet and +0.065 to BM25, and they stack with the tool-trained models (+0.014 for bge, +0.008 for Tool-Embed).
+- **Model size alone does not help.** The two general embedders gain at most +0.045 on customized and +0.010 (not significant) on code + customized. The 1.1B Nemotron is the slowest and is not better than the 350M LFM2.5. Of the two, LFM2.5 is the better choice. Training on tool retrieval matters more than size, as ToolRet reports.
+- **Agent-written tool requests are the largest remaining lever.** Adding ToolRet's instruction to the query lifts R@50 by +0.107 [+0.099, +0.115], and by +0.142 with expanded docs. This is an upper bound, because GPT-4o wrote those instructions with the gold tools in view. A deployable version is an agent that describes the tool it needs (MCP-Zero) or an LLM that extracts the intent (Re-Invoke). The `find_tool` middleware already takes the agent's own description, so this is the next test.
+- **Still far from 0.90.** The best R@100 is 0.65, so end to end the conformal threshold stays at ∞ for α = 0.1 (section 3). Combining a tool-trained embedder, expanded docs and agent-written requests is the path forward. A larger Tool-Embed-4B on a GPU should push further.
+- Notes: LFM2.5-Embedding needs its own bidirectional-attention code from the model repo (`--trust-remote-code`). Without it, every text gets the same embedding. Its code also needs a small shim for transformers 5. bf16 checkpoints are converted to fp32, because bf16 runs 9–25× slower on this CPU.
+
+## 7. Stress tests (RQ3/RQ4), hybrid score source, ~1,080 single-tool test steps
 
 `results/minilm/stress/report_hybrid.md`
 
@@ -104,7 +154,7 @@ End to end, q̂ = ∞ for every α ≤ 0.2 and every score source, so the set is
 
   Embedding/RRF scores barely react to injected text. The case that matters is the decision model, which reads descriptions as instructions; that run is still to do.
 
-## 7. Not yet run
+## 8. Not yet run
 
 | run | needs |
 |---|---|
