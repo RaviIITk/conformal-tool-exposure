@@ -1,0 +1,11 @@
+.venv/
+data/
+cache/
+__pycache__/
+*.pyc
+.env
+.pytest_cache/
+# Regenerable experiment artifacts (large or noisy)
+results/**/probs.npz
+results/logs/
+.DS_Store

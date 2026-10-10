@@ -1,0 +1,149 @@
+{
+  "source": "hybrid",
+  "alpha": 0.1,
+  "view": "stage2",
+  "qhat": 0.9913703220714906,
+  "n_cal": 1086,
+  "k": 50,
+  "clean": {
+    "coverage": 0.8860055607043559,
+    "fnr": 0.11399443929564411,
+    "avg_size": 20.074142724745133,
+    "median_size": 17.0,
+    "singleton_rate": 0.0,
+    "empty_rate": 0.0,
+    "n": 1079,
+    "prefilter_recall": 0.6151653363740023
+  },
+  "drift_static": {
+    "coverage": 0.9100281162136832,
+    "fnr": 0.08997188378631678,
+    "avg_size": 20.25679475164011,
+    "median_size": 18.0,
+    "singleton_rate": 0.0,
+    "empty_rate": 0.0,
+    "n": 1067,
+    "prefilter_recall": 0.6083238312428735,
+    "flagged_in_prefilter": 0.7000937207122774,
+    "flagged_in_set": 0.53514526710403,
+    "flagged_prob_mass": 0.0526423376721387
+  },
+  "drift_stream": {
+    "static_coverage": 0.9100281162136832,
+    "aci_coverage": 0.9044048734770385,
+    "aci_coverage_second_half": 0.9101123595505618,
+    "oracle_recalibrated_coverage_second_half": 0.897003745318352,
+    "aci_final_qhat": 0.9867632752570032,
+    "oracle_qhat": 0.9906226603708134,
+    "aci_recovery_steps": 200,
+    "aci_avg_size": 20.598875351452673
+  },
+  "shift": {
+    "calibrate_web": {
+      "n_cal": 1286,
+      "n_test": 879,
+      "qhat": 0.9893291673582326,
+      "static_coverage": 0.825938566552901,
+      "aci_coverage": 0.8998862343572241
+    },
+    "calibrate_code": {
+      "n_cal": 619,
+      "n_test": 1546,
+      "qhat": 0.994412748187987,
+      "static_coverage": 0.9495472186287193,
+      "aci_coverage": 0.9029754204398448
+    }
+  },
+  "adversarial": {
+    "0.01": {
+      "n_poisoned": 445,
+      "clean_baseline": {
+        "coverage": 0.8860055607043559,
+        "fnr": 0.11399443929564411,
+        "avg_size": 20.074142724745133,
+        "median_size": 17.0,
+        "singleton_rate": 0.0,
+        "empty_rate": 0.0,
+        "n": 1079,
+        "prefilter_recall": 0.6151653363740023,
+        "flagged_in_prefilter": 0.33178869323447635,
+        "flagged_in_set": 0.14457831325301204,
+        "flagged_prob_mass": 0.008920804586133046
+      },
+      "attacked": {
+        "coverage": 0.8862164662349676,
+        "fnr": 0.11378353376503238,
+        "avg_size": 20.13968547641073,
+        "median_size": 18.0,
+        "singleton_rate": 0.0,
+        "empty_rate": 0.0,
+        "n": 1081,
+        "prefilter_recall": 0.6163055872291904,
+        "flagged_in_prefilter": 0.41720629047178537,
+        "flagged_in_set": 0.17668825161887142,
+        "flagged_prob_mass": 0.010122952181324571
+      },
+      "defended": {
+        "coverage": 0.8899167437557817,
+        "fnr": 0.11008325624421832,
+        "avg_size": 20.036077705827935,
+        "median_size": 17.0,
+        "singleton_rate": 0.0,
+        "empty_rate": 0.0,
+        "n": 1081,
+        "prefilter_recall": 0.6163055872291904,
+        "flagged_in_prefilter": 0.34320074005550416,
+        "flagged_in_set": 0.14801110083256244,
+        "flagged_prob_mass": 0.009203612588462248
+      },
+      "detector_precision": 0.8428030303030303,
+      "detector_recall": 1.0,
+      "detector_false_positive_rate": 0.0018860207235048172
+    },
+    "0.05": {
+      "n_poisoned": 2223,
+      "clean_baseline": {
+        "coverage": 0.8860055607043559,
+        "fnr": 0.11399443929564411,
+        "avg_size": 20.074142724745133,
+        "median_size": 17.0,
+        "singleton_rate": 0.0,
+        "empty_rate": 0.0,
+        "n": 1079,
+        "prefilter_recall": 0.6151653363740023,
+        "flagged_in_prefilter": 0.9351251158480074,
+        "flagged_in_set": 0.5579240037071362,
+        "flagged_prob_mass": 0.039786904165304594
+      },
+      "attacked": {
+        "coverage": 0.8895078922934077,
+        "fnr": 0.11049210770659239,
+        "avg_size": 20.068709377901577,
+        "median_size": 18.0,
+        "singleton_rate": 0.0,
+        "empty_rate": 0.0,
+        "n": 1077,
+        "prefilter_recall": 0.6140250855188142,
+        "flagged_in_prefilter": 0.9535747446610956,
+        "flagged_in_set": 0.5543175487465181,
+        "flagged_prob_mass": 0.0438462290427117
+      },
+      "defended": {
+        "coverage": 0.8908418131359852,
+        "fnr": 0.1091581868640148,
+        "avg_size": 20.043478260869566,
+        "median_size": 18.0,
+        "singleton_rate": 0.0,
+        "empty_rate": 0.0,
+        "n": 1081,
+        "prefilter_recall": 0.6163055872291904,
+        "flagged_in_prefilter": 0.9398704902867715,
+        "flagged_in_set": 0.5624421831637373,
+        "flagged_prob_mass": 0.04015314049207598
+      },
+      "detector_precision": 0.9656820156385751,
+      "detector_recall": 1.0,
+      "detector_false_positive_rate": 0.0018707080274686242
+    }
+  }
+}
