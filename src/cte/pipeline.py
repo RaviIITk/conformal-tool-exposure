@@ -22,7 +22,12 @@ def add_common_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--data", type=Path, default=Path("data/toolret"))
     p.add_argument("--cache", type=Path, default=Path("cache"))
     p.add_argument("--out", type=Path, default=Path("results"))
-    p.add_argument("--encoder", default="Qwen/Qwen3-Embedding-0.6B")
+    p.add_argument("--encoder", default="Qwen/Qwen3-Embedding-0.6B",
+                   help="sentence-transformers model; `A+B` fuses several with RRF; `none` = BM25 only")
+    p.add_argument("--prefilter-scope", default="pooled",
+                   help="pooled (whole catalog), routed<m> (m best-matching toolsets first) or toolset "
+                        "(the step's own dataset toolset first: the tools its agent is connected to)")
+    p.add_argument("--no-bm25", action="store_true", help="fuse the encoders only, without BM25")
     p.add_argument("--ce-model", default="cross-encoder/ms-marco-MiniLM-L6-v2")
     p.add_argument("--max-steps", type=int, default=None, help="stratified sample of ToolRet steps")
     p.add_argument("--single-tool-only", action="store_true", help="keep only steps with one gold tool")
@@ -40,7 +45,7 @@ def add_common_args(p: argparse.ArgumentParser) -> None:
 class Setup:
     catalogs: dict[str, Catalog]
     prefilters: dict[str, HybridPrefilter]
-    encoder: Encoder | None
+    encoder: list[Encoder] | None
     dev: Pool
     eval: Pool
     k: int
@@ -54,8 +59,9 @@ def build_setup(args) -> Setup:
     if getattr(args, "single_tool_only", False):
         steps = [s for s in steps if len(s.gold) == 1]
     steps = stratified_sample(steps, args.max_steps, args.seed)
-    encoder = Encoder(args.encoder, args.cache) if args.encoder != "none" else None
-    prefilters = {c: HybridPrefilter(cat, encoder) for c, cat in catalogs.items()}
+    encoder = [Encoder(n, args.cache) for n in args.encoder.split("+")] if args.encoder != "none" else None
+    prefilters = {c: HybridPrefilter(cat, encoder, scope=getattr(args, "prefilter_scope", "pooled"),
+                                     use_bm25=not getattr(args, "no_bm25", False)) for c, cat in catalogs.items()}
     k_grid = [int(x) for x in args.k_grid.split(",")]
     pool = build_pool(steps, prefilters, max(k_grid + [args.k or 0]))
     dev_rows, eval_rows = dev_split(len(pool), args.dev_frac, args.seed)

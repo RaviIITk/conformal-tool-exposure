@@ -114,6 +114,33 @@ def _param_names(doc: dict) -> tuple[str, ...]:
     return tuple(seen)
 
 
+# The toolset each ToolRet dataset ships with (every gold tool of its steps comes from it). An agent
+# deployed for that dataset is connected to exactly these tools, like its set of MCP servers.
+SUBSET_TOOLSET = {
+    "apibank": "apibank", "apigen": "apigen", "appbench": "appbench", "autotools-food": "webtools_food",
+    "autotools-music": "webtools_music", "autotools-weather": "webtools_weather",
+    "craft-math-algebra": "craft_Math_algebra", "craft-tabmwp": "craft_Tabmwp", "craft-vqa": "craft_Vqa",
+    "gorilla-huggingface": "gorilla_huggingface", "gorilla-pytorch": "gorilla_pytorch",
+    "gorilla-tensor": "gorilla_tensor", "gpt4tools": "gpt4tools", "gta": "gta", "metatool": "metatool_which",
+    "mnms": "mnms", "restgpt-spotify": "webtools_spotify", "restgpt-tmdb": "webtools_tmdb",
+    "reversechain": "reversechain", "rotbench": "rotbench", "t-eval-dialog": "t_eval_dialog",
+    "t-eval-step": "t_eval_step", "taskbench-daily": "taskbench_daily",
+    "taskbench-huggingface": "taskbench_huggingface", "taskbench-multimedia": "taskbench_multimedia",
+    "tool-be-honest": "tool_be_honest", "toolace": "toolACE", "toolalpaca": "toolalpaca",
+    "toolbench-sam": "toolbench_sam", "toolbench": "toolbench", "toolemu": "toolemu", "tooleyes": "tooleyes",
+    "toolink": "toolink", "toollens": "toolLens", "ultratool": "ultraTool",
+}
+
+
+def toolset_of(tool_id: str) -> str:
+    """The source toolset of a ToolRet tool (e.g. `toolACE_tool_810` -> `toolACE`).
+
+    Each of ToolRet's 35 datasets ships its own toolset, like the servers one agent is
+    connected to; every gold tool of a step comes from that step's own toolset.
+    """
+    return re.sub(r"_tool_.*$|_\d+$", "", tool_id)
+
+
 def parse_tool(tool_id: str, documentation: str, category: str) -> Tool:
     doc = json.loads(documentation)
     name = _clean(doc.get("name") or doc.get("api_name") or tool_id)

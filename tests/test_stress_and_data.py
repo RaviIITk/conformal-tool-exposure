@@ -52,3 +52,18 @@ def test_parse_tool_formats():
     rapid = parse_tool("r", '{"name": "Get_Order", "description": " ", "required_parameters": [{"name": "id"}], '
                             '"optional_parameters": []}', "web")
     assert rapid.text() == "Get_Order Parameters: id."
+
+
+def test_prefilter_scopes_rank_the_agents_toolset_first():
+    from cte.data import Catalog, Step, Tool
+    from cte.retrieval import HybridPrefilter
+
+    tools = [Tool("toolACE_tool_0", "weather_now", "Current weather for a city."),
+             Tool("toolACE_tool_1", "stock_quote", "Latest stock price for a ticker."),
+             Tool("apigen_tool_0", "city_weather_forecast", "Weather forecast for a city, weather by day."),
+             Tool("apigen_tool_1", "convert_currency", "Convert money between currencies.")]
+    step = Step("s0", "weather forecast for the city of Paris", ("toolACE_tool_0",), "toolace", "web")
+    order = lambda scope: [t.id for t in HybridPrefilter(Catalog(tools), None, scope=scope).search([step], 4).tools[0]]
+    assert order("pooled")[0] == "apigen_tool_0"  # best lexical match, from another dataset's toolset
+    assert order("toolset")[:2] == ["toolACE_tool_0", "toolACE_tool_1"]  # the agent's own tools first
+    assert set(order("routed1")[:2]) == {"apigen_tool_0", "apigen_tool_1"}  # routing follows the best tool
