@@ -6,8 +6,9 @@ Phase 1 fixes the prefilter at K = 50. This script runs the same steps at every 
   - final results per score source: top-1 accuracy, hit@k, and LAC coverage and set size,
     Stage 2 only and end to end, plus API usage.
 
-Sources that call an API are run from the smallest K up; if the API stops answering, the
-sweep keeps every K finished so far and reports which ones it skipped.
+Sources that call an API run only at --api-k-values (default: every K), from the smallest K
+up; if the API stops answering, the sweep keeps every K finished so far and reports which
+ones it skipped. Local sources and the prefilter results run at every K.
 
   python scripts/run_k_sweep.py --max-steps 59 --single-tool-only \
       --encoder sentence-transformers/multi-qa-MiniLM-L6-cos-v1 \
@@ -43,8 +44,9 @@ def run_source(src, dev, ev, args) -> dict:
     probs = src.probs(ev)
     res, _ = evaluate_source(src, probs, ev, args)
     single = ev.n_gold == 1
-    hits = hit_at_k(probs[single], ev.gold_mask[single])
-    res["hit_at_k_e2e"] = {k: hits[k] for k in HIT_KS}
+    for view, mask in (("e2e", single), ("stage2", single & ev.hit_all)):
+        hits = hit_at_k(probs[mask], ev.gold_mask[mask])
+        res[f"hit_at_k_{view}"] = {k: hits[k] for k in HIT_KS}
     if hasattr(src, "usage"):
         res["usage"] = src.usage(ev)
     return res
@@ -62,7 +64,8 @@ def write_report(results: dict, out) -> None:
         "",
         f"Steps: {results['n_dev']} dev + {results['n_eval']} eval "
         f"({results['splits']} random 50/50 calibration/test splits per K). "
-        f"Prefilter: BM25 + `{results['encoder']}` with RRF, top K kept. Score sources: {', '.join(names)}.",
+        f"Prefilter: BM25 + `{results['encoder']}` with RRF, top K kept. Score sources: {', '.join(names)} "
+        f"(API sources at K = {', '.join(map(str, results['api_k_values']))}).",
         "",
         "## Prefilter results (recall = all gold tools among the K candidates)",
         "",
@@ -70,10 +73,11 @@ def write_report(results: dict, out) -> None:
                  [[int(k), p["recall_dev"], p["recall_eval"], p["recall_eval_single"], p["recall_eval_multi"]]
                   for k in ks for p in [results["by_k"][k]["prefilter"]]]),
         "",
-        f"## Final results, single-tool steps, LAC, α = {H1_ALPHA}",
+        "## Final results (single-tool steps)",
         "",
-        "Stage 2 = steps whose gold tool survived the prefilter; end to end = all single-tool steps, "
-        "prefilter misses count as failures. hit@k is end to end.",
+        "End to end (e2e) = all single-tool steps, prefilter misses count as failures; Stage 2 = steps whose "
+        "gold tool survived the prefilter. hit@k = right tool among the top k tools shown; "
+        f"coverage and set size are for LAC conformal sets at α = {H1_ALPHA}.",
         "",
     ]
     rows, skipped = [], []
@@ -81,14 +85,16 @@ def write_report(results: dict, out) -> None:
         for k in ks:
             res = results["by_k"][k]["sources"].get(n)
             if res is None:
-                skipped.append(f"{n} at K = {k}")
+                if int(k) in results["api_k_values"]:
+                    skipped.append(f"{n} at K = {k}")
                 continue
             s2, e2e = cp_row(res, "single_stage2", H1_ALPHA), cp_row(res, "single_e2e", H1_ALPHA)
-            rows.append([n, int(k), res["top1_accuracy"], *(res["hit_at_k_e2e"][h] for h in HIT_KS),
-                         s2.get("n"), s2.get("coverage"), s2.get("avg_size"),
+            rows.append([n, int(k), *(res["hit_at_k_e2e"][h] for h in HIT_KS), s2.get("n"),
+                         *(res["hit_at_k_stage2"][h] for h in HIT_KS), s2.get("coverage"), s2.get("avg_size"),
                          e2e.get("coverage"), e2e.get("avg_size")])
-    lines.append(md_table(["source", "K", "top-1 acc.", *(f"hit@{h}" for h in HIT_KS), "Stage-2 n",
-                           "Stage-2 coverage", "Stage-2 avg set size", "e2e coverage", "e2e avg set size"], rows))
+    lines.append(md_table(["source", "K", *(f"e2e hit@{h}" for h in HIT_KS), "Stage-2 n",
+                           *(f"Stage-2 hit@{h}" for h in HIT_KS), "Stage-2 coverage", "Stage-2 avg set size",
+                           "e2e coverage", "e2e avg set size"], rows))
     full = []
     for n in names:
         for k in ks:
@@ -124,10 +130,12 @@ def main() -> None:
     add_common_args(p)
     p.set_defaults(sources="dense,mercury-choice")
     p.add_argument("--k-values", default="10,20,30,50", help="comma list of prefilter K values")
+    p.add_argument("--api-k-values", default=None, help="K values at which API sources run (default: all)")
     p.add_argument("--splits", type=int, default=100)
     p.add_argument("--k-max", type=int, default=5)
     args = p.parse_args()
     ks = sorted(int(k) for k in args.k_values.split(","))
+    api_ks = set(ks) if args.api_k_values is None else {int(k) for k in args.api_k_values.split(",")}
     args.k, args.k_grid = ks[-1], args.k_values
     out = args.out / "k_sweep"
     out.mkdir(parents=True, exist_ok=True)
@@ -138,7 +146,7 @@ def main() -> None:
 
     names = args.sources.split(",")
     sources = {n: make_source(n, args) for n in names}
-    results = {"k_values": ks, "sources": names, "n_dev": len(S.dev), "n_eval": len(S.eval), "splits": args.splits,
+    results = {"k_values": ks, "api_k_values": sorted(api_ks), "sources": names, "n_dev": len(S.dev), "n_eval": len(S.eval), "splits": args.splits,
                "k_max": args.k_max, "encoder": args.encoder, "by_k": {}}
     stopped = set()
     for k in ks:
@@ -147,7 +155,7 @@ def main() -> None:
         print(f"K={k:4d} prefilter recall dev={entry['prefilter']['recall_dev']:.3f} "
               f"eval={entry['prefilter']['recall_eval']:.3f}")
         for n, src in sources.items():
-            if n in stopped:
+            if n in stopped or (hasattr(src, "usage") and k not in api_ks):
                 continue
             t0 = time.time()
             try:
@@ -169,8 +177,8 @@ def main() -> None:
               {"dev": (ks, [results["by_k"][k]["prefilter"]["recall_dev"] for k in done]),
                "eval": (ks, [results["by_k"][k]["prefilter"]["recall_eval"] for k in done])},
               "Prefilter recall vs K", "prefilter K", "recall")
-    for metric, fname, title in (("coverage", "coverage_vs_k.png", "Coverage vs K"),
-                                 ("avg_size", "set_size_vs_k.png", "Average set size vs K")):
+    for metric, fname, title in (("coverage", "coverage_vs_k.png", "Coverage"),
+                                 ("avg_size", "set_size_vs_k.png", "Average set size")):
         series = {}
         for n in names:
             for view in ("single_stage2", "single_e2e"):
@@ -179,7 +187,8 @@ def main() -> None:
                 if pts:
                     series[f"{n} ({view.split('_')[1]})"] = tuple(map(list, zip(*pts)))
         if series:
-            line_plot(out / fname, series, f"{title} (single-tool, LAC, α={H1_ALPHA})", "prefilter K", metric,
+            line_plot(out / fname, series, f"{title} vs K (single-tool, LAC, α={H1_ALPHA})", "prefilter K",
+                      title.lower(),
                       hline=1 - H1_ALPHA if metric == "coverage" else None)
     write_report(results, out)
     print(f"wrote {out / 'report.md'}")

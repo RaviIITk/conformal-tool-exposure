@@ -1,6 +1,6 @@
 # Results so far (10 Oct 2026)
 
-All runs use ToolRet (7,961 steps, 44,453 tools). The Stage-1 prefilter is BM25 + `multi-qa-MiniLM-L6-cos-v1` fused with RRF, K = 50. The decision model is Inception Mercury Decide on OpenRouter (free tier). Detailed tables and figures are in each `results/**/report.md`.
+All runs use ToolRet (7,961 steps, 44,453 tools). The Stage-1 prefilter is BM25 + `multi-qa-MiniLM-L6-cos-v1` fused with RRF, K = 50 (section 5 varies K). The decision model is Inception Mercury Decide on OpenRouter (free tier). Detailed tables and figures are in each `results/**/report.md`.
 
 ## 1. Tests
 
@@ -54,7 +54,37 @@ End to end, q̂ = ∞ for every α ≤ 0.2 and every score source, so the set is
 - **Mercury is overconfident:** ECE 0.26, with confidence near 1.0 but accuracy near 0.7. Conformal calibration absorbs this; a raw confidence threshold would not.
 - **Usage:** median API latency 1.1 s, about 2.7k input tokens per call, $0.
 
-## 5. Stress tests (RQ3/RQ4), hybrid score source, ~1,080 single-tool test steps
+## 5. Prefilter K sweep: dense and Mercury Decide (variable K)
+
+`results/k_sweep/report.md` (`scripts/run_k_sweep.py`). These are the same 59 single-tool steps as section 4 (12 dev + 47 eval). Only K varies; the rest of the pipeline is unchanged. Mercury Decide was run at K = 100 (47 calls). Its K = 50 row is the section 4 run on the same steps.
+
+**Prefilter results** (recall = right tool among the K candidates):
+
+| K | 10 | 20 | 30 | 50 | 100 |
+|---|---|---|---|---|---|
+| eval recall (n = 47) | 0.43 | 0.49 | 0.55 | 0.60 | 0.68 |
+| dev recall (n = 12) | 0.17 | 0.33 | 0.33 | 0.50 | 0.67 |
+
+**Final results** (single-tool steps; hit@k = right tool among the top k shown; LAC at α = 0.1):
+
+| score source | K | e2e hit@1 | e2e hit@5 | Stage-2 n | Stage-2 hit@1 | Stage-2 hit@5 | Stage-2 coverage | Stage-2 avg set size | e2e coverage |
+|---|---|---|---|---|---|---|---|---|---|
+| dense | 10 | 0.17 | 0.32 | 20 | 0.40 | 0.75 | 0.90 | 8.7 | 0.43 |
+| dense | 20 | 0.17 | 0.30 | 23 | 0.35 | 0.61 | 0.92 | 16.2 | 0.49 |
+| dense | 30 | 0.17 | 0.26 | 26 | 0.31 | 0.46 | 0.92 | 26.5 | 0.55 |
+| dense | 50 | 0.17 | 0.26 | 28 | 0.29 | 0.43 | 0.93 | 43.1 | 0.59 |
+| dense | 100 | 0.17 | 0.26 | 32 | 0.25 | 0.38 | 0.94 | 83.7 | 0.67 |
+| Mercury Decide | 50 (section 4) | 0.45 | 0.57 | 28 | 0.75 | 0.96 | 0.94 | 2.3 | 0.59 |
+| **Mercury Decide** | **100** | **0.47** | **0.57** | **32** | **0.69** | **0.84** | **0.95** | **5.0** | **0.67** |
+
+- **Recall rises slowly with K:** 0.43 at K = 10, 0.60 at K = 50, 0.68 at K = 100. No K reaches 0.90, so end to end the threshold is ∞ at α = 0.1 for every K and source. The agent then sees all K tools, and end-to-end coverage equals recall.
+- **Going from K = 50 to 100 barely helps Mercury end to end.** 4 more steps reach Stage 2 (28 → 32), but top-1 rises by only one step (21 → 22 of 47), and hit@5 is unchanged at 0.57.
+- **Mercury holds up with 100 candidates on the same steps.** On the 28 steps that reached Stage 2 at K = 50, its hit@1 at K = 100 is unchanged (0.75), and hit@5 drops from 0.96 to 0.89. The 4 steps that K = 100 adds are harder (hit@1 1/4). That is why the Stage-2 hit@1 falls to 0.69, and its conformal set at α = 0.1 grows from 2.3 to 5.0 tools. Coverage when capped at 5 tools falls from 0.94 to 0.85.
+- **Dense sets grow almost linearly with K** (8.7 → 83.7 tools at α = 0.1). Dense cannot separate the right tool from the added candidates; its Stage-2 hit@1 falls from 0.40 to 0.25.
+- **Usage at K = 100:** about 5.3k input tokens per call (2.7k at K = 50), median latency 0.9 s, 0 refusals.
+- n = 47 (32 at Stage 2), so treat these as signals, not results. A larger K alone does not fix the prefilter; a stronger Stage-1 retriever is still the main lever (section 3).
+
+## 6. Stress tests (RQ3/RQ4), hybrid score source, ~1,080 single-tool test steps
 
 `results/minilm/stress/report_hybrid.md`
 
@@ -72,13 +102,13 @@ End to end, q̂ = ∞ for every α ≤ 0.2 and every score source, so the set is
   - At 5%, there is no measurable effect.
   - Detector: recall 1.00, precision 0.84–0.97, false positives on 0.19% of clean tools.
 
-  Embedding/RRF scores barely react to injected text. The case that matters is the decision model, which reads descriptions as instructions; that run needs API quota.
+  Embedding/RRF scores barely react to injected text. The case that matters is the decision model, which reads descriptions as instructions; that run is still to do.
 
-## 6. Not yet run (needs quota or keys)
+## 7. Not yet run
 
 | run | needs |
 |---|---|
-| Phase 1 at scale with Mercury (Mode A + B, ~1,000 steps) | OpenRouter 1,000/day tier ($10 credit) or about 20 days on the free 50/day |
-| Stress tests with Mercury (lookalikes and poisoning against a sharp scorer) | about 1,200 calls |
+| Phase 1 at scale with Mercury (Mode A + B, ~1,000 steps) | Mercury Decide, one call per step per mode |
+| Stress tests with Mercury (lookalikes and poisoning against a sharp scorer) | about 1,200 Mercury Decide calls |
 | Phase 2 agent-in-the-loop proxy (RQ2) | an agent chat model (OpenAI key or an OpenRouter chat model) |
-| Phase 4 governance latency (RQ5) | 2 calls per step; 20 steps fits the free tier |
+| Phase 4 governance latency (RQ5) | 2 Mercury Decide calls per step |

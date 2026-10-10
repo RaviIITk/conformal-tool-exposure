@@ -22,7 +22,19 @@ tools shown to agent     1     2     3     5
 right tool included     75%   86%   93%   96%
 ```
 
-With adaptive set sizes (target 90%), the agent sees 2.3 tools on average and the right tool is included 94% of the time. The best local scorer, a cross-encoder, needs about 28 tools for the same coverage. The coverage guarantee itself was validated on the full benchmark with local scorers. The main open problem is Stage-1 recall: the prefilter keeps the right tool among 50 candidates for 62% of requests. Full numbers are in [`RESULTS.md`](RESULTS.md) and `results/`.
+With adaptive set sizes (target 90%), the agent sees 2.3 tools on average and the right tool is included 94% of the time. The best local scorer, a cross-encoder, needs about 28 tools for the same coverage. The coverage guarantee itself was validated on the full benchmark with local scorers. The main open problem is Stage-1 recall: the prefilter keeps the right tool among 50 candidates for 62% of requests.
+
+**Prefilter K sweep** (same 47 requests, prefilter K varied, Mercury Decide and dense scorers; set sizes are for requests where the right tool reached Stage 2):
+
+```
+prefilter K                              10     20     30     50    100
+right tool kept by prefilter            43%    49%    55%    60%    68%
+Mercury: right tool ranked 1st (e2e)      –      –      –    45%    47%
+Mercury: tools shown at 90% target        –      –      –    2.3    5.0
+dense:   tools shown at 90% target      8.7   16.2   26.5   43.1   83.7
+```
+
+Raising K from 50 to 100 adds 8 points of prefilter recall but only one more correct top-1, and doubles Mercury's set size. Mercury's accuracy on the steps it already saw is unchanged; the added steps are harder. A larger K alone does not fix the prefilter. Full numbers are in [`RESULTS.md`](RESULTS.md) and `results/`.
 
 ## Setup
 
@@ -36,7 +48,7 @@ uv pip install --python .venv/bin/python -e ".[dev]"
 
 ToolRet (about 16 MB) downloads into `data/toolret/` on first run. Copy `.env.example` to `.env` and set `OPENROUTER_API_KEY`, which the decision model needs. `OPENAI_API_KEY` is optional.
 
-**OpenRouter free-tier limits:** 20 requests/min, and 50 requests/day (1,000/day after $10 of credits). One request scores one agent step in either mode. Responses are cached, so a long run can be resumed across days. Set `CTE_MAX_API_CALLS=N` to make a run fail rather than exceed N new calls.
+One decision-model request scores one agent step in either mode. Responses are cached, so a run can be resumed. Set `CTE_MAX_API_CALLS=N` to make a run fail rather than exceed N new calls.
 
 ## Run
 
@@ -45,8 +57,8 @@ ToolRet (about 16 MB) downloads into `data/toolret/` on first run. Copy `.env.ex
 | Tests (synthetic coverage guarantee, mocked API endpoints, middleware flow) | `.venv/bin/python -m pytest` | no |
 | Phase 1, RQ1/H1: coverage and set size per score source | `.venv/bin/python scripts/run_phase1.py` | no |
 | Phase 1 with the decision model (Mercury Decide; 47 calls with these flags) | `.venv/bin/python scripts/run_phase1.py --max-steps 59 --single-tool-only --sources bm25,dense,hybrid,ce,mercury-choice` | OpenRouter |
-| Phase 1 at scale (needs the 1,000/day tier, or several days) | `.venv/bin/python scripts/run_phase1.py --max-steps 1200 --sources bm25,dense,hybrid,ce,ce-pred,mercury-choice,mercury-predicate` | OpenRouter |
-| Prefilter K sweep: prefilter recall and final results (dense + Mercury Decide) at each K | `.venv/bin/python scripts/run_k_sweep.py --max-steps 59 --single-tool-only --encoder sentence-transformers/multi-qa-MiniLM-L6-cos-v1 --k-values 10,20,30,50` | OpenRouter |
+| Phase 1 at scale | `.venv/bin/python scripts/run_phase1.py --max-steps 1200 --sources bm25,dense,hybrid,ce,ce-pred,mercury-choice,mercury-predicate` | OpenRouter |
+| Prefilter K sweep: prefilter recall and final results (dense + Mercury Decide) at each K; `--api-k-values` picks the K values Mercury runs at | `.venv/bin/python scripts/run_k_sweep.py --max-steps 59 --single-tool-only --encoder sentence-transformers/multi-qa-MiniLM-L6-cos-v1 --k-values 10,20,30,50,100 --api-k-values 100` | OpenRouter |
 | Phase 3, RQ3/RQ4: drift, shift, poisoned descriptions | `.venv/bin/python scripts/run_stress.py --source ce` | no (OpenRouter with `--source mercury-choice`) |
 | Phase 2 proxy, RQ2: agent success per token by exposure condition | `.venv/bin/python scripts/run_phase2_proxy.py --max-steps 1500 --n-steps 300` | OpenRouter + agent chat model |
 | Phase 4, RQ5: latency of adding risk questions to the same call | `.venv/bin/python scripts/run_governance.py --max-steps 1500 --n-steps 20` | OpenRouter |
