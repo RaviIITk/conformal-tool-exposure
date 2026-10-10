@@ -22,7 +22,7 @@ tools shown to agent     1     2     3     5
 right tool included     75%   86%   93%   96%
 ```
 
-With adaptive set sizes (target 90%), the agent sees 2.3 tools on average and the right tool is included 94% of the time. The best local scorer, a cross-encoder, needs about 28 tools for the same coverage. These Mercury figures come from an early 47-request run (the free tier allows 50 calls a day). The coverage guarantee itself was validated on the full benchmark with local scorers. The main open problem is Stage-1 recall: the prefilter keeps the right tool among 50 candidates for 62% of requests. Full numbers are in [`RESULTS.md`](RESULTS.md) and `results/`.
+With adaptive set sizes (target 90%), the agent sees 2.3 tools on average and the right tool is included 94% of the time. The best local scorer, a cross-encoder, needs about 28 tools for the same coverage. The coverage guarantee itself was validated on the full benchmark with local scorers. The main open problem is Stage-1 recall: the prefilter keeps the right tool among 50 candidates for 62% of requests. Full numbers are in [`RESULTS.md`](RESULTS.md) and `results/`.
 
 ## Setup
 
