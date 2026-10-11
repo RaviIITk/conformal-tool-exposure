@@ -30,7 +30,7 @@ from cte.metrics import calibration_error, split_coverage_theory
 from cte.openai_scorers import SystemOneSource
 from cte.pipeline import write_json
 from cte.report import md_table
-from cte.retrieval import Encoder, HybridPrefilter, build_pool
+from cte.retrieval import Encoder, HybridPrefilter, Pool, build_pool
 
 ALPHAS = (0.02, 0.05, 0.10, 0.20)
 
@@ -70,6 +70,22 @@ def retrieval_probs(pool, fit_pool) -> np.ndarray:
     return soft(pool.dense, np.exp(minimize_scalar(nll, bounds=(-6, 2), method="bounded").x))
 
 
+def pool_from_candidates(steps, z, catalogs: dict, fallback: Pool, k: int) -> Pool:
+    """Pool from run_prefilter_k50.py's saved ranking (its best method, within each step's toolset).
+    Toolsets smaller than k are filled, as the `toolset` scope does, with the next tools of `fallback`."""
+    row = {sid: i for i, sid in enumerate(z["step_ids"].astype(str))}
+    by_id = {t.id: t for cat in catalogs.values() for t in cat.tools}
+    tools, scores = [], np.full((len(steps), k), -1e9)
+    for i, s in enumerate(steps):
+        ids = [t for t in z["tool_ids"][row[s.id], :k].astype(str) if t]
+        fill = [t for t in fallback.tools[i] if t.id not in set(ids)][:k - len(ids)]
+        tools.append([by_id[t] for t in ids] + fill)
+        scores[i, :len(ids)] = z["scores"][row[s.id], :len(ids)]
+    gm = np.array([[t.id in set(s.gold) for t in ts] for s, ts in zip(steps, tools)])
+    zeros = np.zeros_like(scores)
+    return Pool(steps, tools, zeros, scores, zeros, gm, np.array([len(s.gold) for s in steps]))
+
+
 def hit_at(probs: np.ndarray, gold_mask: np.ndarray, k: int) -> float:
     top = np.argsort(-probs, axis=1, kind="stable")[:, :k]
     return float(np.take_along_axis(gold_mask, top, 1).any(1).mean())
@@ -92,6 +108,8 @@ def main() -> None:
     p.add_argument("--k", type=int, default=None, help="override the K chosen on the other steps")
     p.add_argument("--k-grid", default="50,100,150,200,250,300")
     p.add_argument("--splits", type=int, default=200)
+    p.add_argument("--candidates", type=Path, default=None,
+                   help="candidates.npz from run_prefilter_k50.py: use its best ranking as the prefilter")
     args = p.parse_args()
     args.out.mkdir(parents=True, exist_ok=True)
 
@@ -113,6 +131,12 @@ def main() -> None:
     k_max = max(grid + [args.k or 0])
     pool_others = build_pool(others, prefilters, k_max)
     pool = build_pool(sample, prefilters, k_max)
+    prefilter_name = f"an RRF ensemble of `{args.encoder}`{' and BM25' if args.use_bm25 else ''} over expanded tool docs"
+    if args.candidates:
+        z = np.load(args.candidates)
+        pool_others = pool_from_candidates(others, z, catalogs, pool_others, k_max)
+        pool = pool_from_candidates(sample, z, catalogs, pool, k_max)
+        prefilter_name = f"`{z['method']}` (scripts/run_prefilter_k50.py)"
     recall_others = {k: float(pool_others.gold_mask[:, :k].any(1).mean()) for k in grid}
     k = args.k or next((k for k in grid if recall_others[k] >= args.target + args.margin), grid[-1])
     pool = pool.truncate(k)
@@ -125,6 +149,7 @@ def main() -> None:
     dup = duplicate_mask(pool, originals)
     n, ng = len(pool), pool.n_gold
     res = {"categories": cats, "encoder": args.encoder, "use_bm25": args.use_bm25, "n": n, "k": k,
+           "prefilter": prefilter_name, "k_fixed": args.k is not None,
            "target": args.target, "margin": args.margin, "recall_other_steps": recall_others,
            "n_other_steps": len(others), "prefilter_recall": float(pool.hit_all.mean()),
            "prefilter_recall_duplicate": float(dup.any(1).mean()), "usage": usage,
@@ -169,9 +194,9 @@ def write_report(res: dict, out: Path) -> None:
         "# End to end: deployment prefilter + Mercury Decide",
         "",
         f"{res['n']} single-tool steps from ToolRet {', '.join(res['categories'])} (stratified sample), one Mercury "
-        f"Decide call each. Prefilter: the step's own toolset, ranked by an RRF ensemble of "
-        f"`{res['encoder']}`{' and BM25' if res['use_bm25'] else ''} over expanded tool docs. K = {res['k']}, the "
-        f"smallest K whose recall on the other {res['n_other_steps']} steps reaches {res['target']} + {res['margin']}.",
+        f"Decide call each. Prefilter: the step's own toolset, ranked by {res['prefilter']}. K = {res['k']}"
+        + (f", the smallest K whose recall on the other {res['n_other_steps']} steps reaches {res['target']} + "
+           f"{res['margin']}." if not res.get("k_fixed") else " (set by --k)."),
         "",
         "## Prefilter",
         "",

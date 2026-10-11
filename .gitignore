@@ -10,3 +10,4 @@ results/**/probs.npz
 results/**/ranks.npz
 results/logs/
 .DS_Store
+results/**/candidates.npz

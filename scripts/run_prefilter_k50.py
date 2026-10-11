@@ -220,6 +220,7 @@ def rrf_partial(x: np.ndarray) -> np.ndarray:
     return out
 
 
+EXAMPLE_WEIGHTS = (0.5, 1.0, 2.0, 4.0, 8.0, 16.0)  # RRF weight grid for per-tool example requests
 APIBENCH_URL = "https://raw.githubusercontent.com/ShishirPatil/gorilla/main/data/apibench/huggingface_train.json"
 
 
@@ -449,8 +450,11 @@ def main() -> None:
             tagged = f"{key} + Gorilla train requests"
             methods[f"{tagged} (kNN)"] = [b + rrf_partial(u) for b, u in zip(methods[key], knn)]
             methods[f"{tagged} (centroid)"] = [b + rrf_partial(u) for b, u in zip(methods[key], cen)]
-            methods[f"{tagged} (kNN) + usage kNN (gated)"], gates[f"{tagged} (kNN)"] = gated_usage(
-                setup, methods[f"{tagged} (kNN)"], usage)
+            tuned = f"{tagged} (centroid, weight chosen on other folds)"
+            methods[tuned], gates[tuned] = gated_usage(setup, methods[key], cen, weights=EXAMPLE_WEIGHTS,
+                                                       taus=(-np.inf,))
+            methods[f"{tuned} + usage kNN (gated)"], gates[f"{tuned} + usage"] = gated_usage(
+                setup, methods[tuned], usage)
 
     ranks = {m: np.array([gold_rank(s, g) for s, g in zip(v, setup.gold)]) for m, v in methods.items()}
     base_r = ranks[base_key]
@@ -464,6 +468,14 @@ def main() -> None:
     res["subset_n"] = {x: int((sub == x).sum()) for x in subsets}
     best = max(ranks, key=lambda m: np.mean(ranks[m] < 50))
     res["best"] = best
+    # The best ranking's top candidates per step, for Stage 2 (run_deploy_mercury.py --candidates).
+    depth = 200
+    order = [np.argsort(-methods[best][i], kind="stable")[:depth] for i in range(n)]
+    pad = lambda xs, fill: list(xs) + [fill] * (depth - len(xs))
+    np.savez(args.out / "candidates.npz", step_ids=np.array([s.id for s in setup.steps]), method=best,
+             tool_ids=np.array([pad([setup.catalogs[s.category].tools[setup.cand[i][j]].id for j in o], "")
+                                for i, (s, o) in enumerate(zip(setup.steps, order))]),
+             scores=np.array([pad(methods[best][i][o], -np.inf) for i, o in enumerate(order)]))
     res["adaptive"] = {m: adaptive_k(setup, ranks[m], methods[m], args.target)
                        for m in dict.fromkeys([base_key, best])}
     # The margin rule over mean cosine (a calibrated score scale) for the base encoders.
