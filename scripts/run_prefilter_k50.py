@@ -220,6 +220,74 @@ def rrf_partial(x: np.ndarray) -> np.ndarray:
     return out
 
 
+APIBENCH_URL = "https://raw.githubusercontent.com/ShishirPatil/gorilla/main/data/apibench/huggingface_train.json"
+
+
+def apibench_queries(setup: Setup, root: Path) -> dict[tuple[str, int], list[str]]:
+    """Gorilla's APIBench training instructions (arXiv 2305.15334): ~9 self-instruct requests per
+    Hugging Face model, written from the model's doc. ToolRet's gorilla-huggingface requests come from
+    APIBench's held-out eval split, so these are usage examples per tool, not test requests."""
+    import json
+    import re
+    import urllib.request
+
+    path = root / "apibench" / "huggingface_train.json"
+    if not path.exists():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        urllib.request.urlretrieve(APIBENCH_URL, path)
+    out = defaultdict(list)
+    for c, cat in setup.catalogs.items():
+        by_name = {t.name: j for j, t in enumerate(cat.tools) if toolset_of(t.id) == "gorilla_huggingface"}
+        for line in path.read_text().splitlines():
+            r = json.loads(line)
+            m = re.search(r"###Instruction:(.*?)###Output", r["code"], re.S)
+            j = by_name.get(r["api_data"].get("api_name"))
+            if m and j is not None:
+                out[(c, j)].append(" ".join(m.group(1).split()))
+    return out
+
+
+def tool_query_scores(setup: Setup, examples: dict[tuple[str, int], list[str]], q: dict[str, np.ndarray],
+                      encoders: list[str], cache: Path, dedup: float = 0.95):
+    """Score each tool by its example requests (Tool2Vec, arXiv 2409.02141): `knn` = best cosine to one
+    of its examples, `centroid` = cosine to their mean embedding; averaged over the encoders. Examples
+    within `dedup` cosine of any evaluated request (first encoder) are dropped as near-duplicates."""
+    keys = list(examples)
+    texts = [t for k in keys for t in examples[k]]
+    owner = np.repeat(np.arange(len(keys)), [len(examples[k]) for k in keys])
+    embs = {}
+    for e in encoders:
+        enc = Encoder(e, cache)
+        embs[e] = enc.encode(texts, is_query=True)
+        enc.cache.save()
+    near = (embs[encoders[0]] @ q[encoders[0]].T).max(1) >= dedup
+    keep = ~near
+    owner_k = owner[keep]
+    cents = {}
+    for e in encoders:
+        c = np.zeros((len(keys), embs[e].shape[1]))
+        np.add.at(c, owner_k, embs[e][keep])
+        cents[e] = c / np.maximum(np.linalg.norm(c, axis=1, keepdims=True), 1e-9)
+    has = np.bincount(owner_k, minlength=len(keys)) > 0
+    pos = {k: i for i, k in enumerate(keys)}
+    knn, cen = [], []
+    for i, (s, cand) in enumerate(zip(setup.steps, setup.cand)):
+        rows = np.array([pos.get((s.category, int(t)), -1) for t in cand])
+        a, b = np.full(len(cand), -np.inf), np.full(len(cand), -np.inf)
+        ok = rows >= 0
+        if ok.any():
+            ok &= has[np.maximum(rows, 0)]
+            a[ok], b[ok] = 0.0, 0.0
+            for e in encoders:
+                best = np.full(len(keys), -np.inf)
+                np.maximum.at(best, owner_k, embs[e][keep] @ q[e][i])
+                a[ok] += best[rows[ok]] / len(encoders)
+                b[ok] += (cents[e] @ q[e][i])[rows[ok]] / len(encoders)
+        knn.append(a)
+        cen.append(b)
+    return knn, cen, {"examples": len(texts), "tools": len(keys), "near_duplicates_dropped": int(near.sum())}
+
+
 def gated_usage(setup: Setup, base: list[np.ndarray], usage: list[np.ndarray], k: int = 50,
                 weights=(0.25, 0.5, 1.0), taus=(-np.inf, 0.5, 0.6, 0.7, 0.8, 0.9)):
     """base + w * RRF(usage kNN), counting only past requests at least tau similar. For each fold,
@@ -319,6 +387,8 @@ def main() -> None:
                                                "mangopy/ToolRet-trained-e5-large-v2")
     p.add_argument("--finetune", default="mangopy/ToolRet-trained-bge-base-en-v1.5",
                    help="comma list of encoders to fine-tune in-domain (cross-fitted); empty to skip")
+    p.add_argument("--tool-examples", default="apibench",
+                   help="`apibench`: Gorilla's training requests as usage examples for gorilla-huggingface tools")
     p.add_argument("--rerankers", default="")
     p.add_argument("--rerank-n", type=int, default=120)
     p.add_argument("--rerank-depth", type=int, default=200)
@@ -371,10 +441,22 @@ def main() -> None:
         methods[f"{key} + usage kNN (plain RRF)"] = [b + rrf_partial(u) for b, u in zip(methods[key], usage)]
         methods[f"{key} + usage kNN (gated)"], gates[key] = gated_usage(setup, methods[key], usage)
 
+    examples_info = None
+    if args.tool_examples == "apibench":
+        knn, cen, examples_info = tool_query_scores(setup, apibench_queries(setup, args.data), q, base_names,
+                                                    args.cache)
+        for key in dict.fromkeys([base_key, best_dense]):
+            tagged = f"{key} + Gorilla train requests"
+            methods[f"{tagged} (kNN)"] = [b + rrf_partial(u) for b, u in zip(methods[key], knn)]
+            methods[f"{tagged} (centroid)"] = [b + rrf_partial(u) for b, u in zip(methods[key], cen)]
+            methods[f"{tagged} (kNN) + usage kNN (gated)"], gates[f"{tagged} (kNN)"] = gated_usage(
+                setup, methods[f"{tagged} (kNN)"], usage)
+
     ranks = {m: np.array([gold_rank(s, g) for s, g in zip(v, setup.gold)]) for m, v in methods.items()}
     base_r = ranks[base_key]
     res = {"n": n, "categories": args.categories.split(","), "target": args.target, "folds": args.folds,
            "base": base_key, "gold_tool_used_before": float(has_hist.mean()), "usage_gates": gates,
+           "tool_examples": examples_info,
            "methods": {m: summary(r, None if m == base_key else base_r, args.target) for m, r in ranks.items()}}
     subsets = sorted({s.subset for s in setup.steps})
     sub = np.array([s.subset for s in setup.steps])
@@ -434,7 +516,14 @@ def write_report(res: dict, out: Path, short) -> None:
         "encoders over Tool-REX expanded docs (the section 7 prefilter, with ranks taken within the toolset). "
         f"Usage kNN = query-to-query kNN over past requests from the other {res['folds']} cross-fitting folds "
         f"of the same toolset (same-text requests left out); the gold tool had been used before for "
-        f"{res['gold_tool_used_before']:.0%} of steps. ΔR@50 = paired bootstrap against the base.",
+        f"{res['gold_tool_used_before']:.0%} of steps. "
+        + (f"Gorilla train requests = APIBench's training instructions ({res['tool_examples']['examples']} requests "
+           f"for {res['tool_examples']['tools']} Hugging Face models; ToolRet's gorilla-huggingface requests come from "
+           f"its eval split; {res['tool_examples']['near_duplicates_dropped']} requests within 0.95 cosine of an "
+           "evaluated request dropped), scored per tool by the best match (`kNN`) or the mean embedding "
+           "(`centroid`, Tool2Vec) and fused with RRF. " if res.get("tool_examples") else "")
+        + "`gated` = the usage weight and similarity floor chosen on the other folds. "
+        "ΔR@50 = paired bootstrap against the base.",
         "",
         md_table(head, [row(m, r) for m, r in methods]),
         "",
