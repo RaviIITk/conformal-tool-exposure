@@ -1,16 +1,17 @@
 # Results so far (10 Oct 2026)
 
-All runs use ToolRet (7,961 steps, 44,453 tools). The Stage-1 prefilter is BM25 + `multi-qa-MiniLM-L6-cos-v1` fused with RRF, K = 50 (section 5 varies K; section 6 tests stronger prefilters). The decision model is Inception Mercury Decide on OpenRouter (free tier). Detailed tables and figures are in each `results/**/report.md`.
+All runs use ToolRet (7,961 steps, 44,453 tools). The Stage-1 prefilter is BM25 + `multi-qa-MiniLM-L6-cos-v1` fused with RRF, K = 50 (section 5 varies K; sections 6 and 7 test stronger prefilters). The decision model is Inception Mercury Decide on OpenRouter (free tier). Detailed tables and figures are in each `results/**/report.md`.
 
 ## 1. Tests
 
-`pytest`: 31 tests pass. They check that:
+`pytest`: 32 tests pass. They check that:
 
 - **Coverage guarantee (synthetic data):** split conformal hits 1 − α for LAC and APS.
 - **Risk control:** conformal risk control keeps the false-negative rate ≤ α, and its exact threshold matches brute force.
 - **Prefilter misses:** they push q̂ to ∞, and coverage is then capped at recall@K.
 - **Online ACI:** it restores coverage after a score shift.
 - **API clients:** OpenRouter, OpenAI Decisions and Chat Completions work against mocked HTTP endpoints, including retry on 429 and caching.
+- **Prefilter scopes:** the agent's own toolset is ranked first, and routing follows the best-matching toolset.
 - **LangChain middleware:** the agent first sees only `find_tool`, then only the conformal set. Unexposed tools are blocked, governance blocks destructive tools, and an empty set falls back to top-1.
 
 ## 2. Phase 1 on the full dataset, local score sources (RQ1)
@@ -134,7 +135,67 @@ On the customized catalog alone (982 steps; `results/prefilter/customized/report
 - **Still far from 0.90.** The best R@100 is 0.65, so end to end the conformal threshold stays at ∞ for α = 0.1 (section 3). Combining a tool-trained embedder, expanded docs and agent-written requests is the path forward. A larger Tool-Embed-4B on a GPU should push further.
 - Notes: LFM2.5-Embedding needs its own bidirectional-attention code from the model repo (`--trust-remote-code`). Without it, every text gets the same embedding. Its code also needs a small shim for transformers 5. bf16 checkpoints are converted to fp32, because bf16 runs 9–25× slower on this CPU.
 
-## 7. Stress tests (RQ3/RQ4), hybrid score source, ~1,080 single-tool test steps
+## 7. Reaching 95%: search the agent's own toolset, then Mercury Decide
+
+Section 6 still left the right tool outside the top 100 for about a third of the steps. This section asks what it takes to keep it in at least 95% of the time, then runs Mercury Decide on top. `results/prefilter/deploy_*/report.md`, `results/deploy_mercury/report.md`.
+
+**Why the pooled catalog cannot get there.** ToolRet pools the toolsets of 35 separate datasets into three catalogs: web has 37,292 tools from 19 datasets. With the whole catalog in play, 95% single-tool recall needs K ≈ 13,600 for BM25 + MiniLM on all of ToolRet. Even the best tool-trained ensemble needs K ≈ 1,700 on code + customized. No decision model reads that many candidates.
+
+**What the literature points to.**
+- **Hierarchical server-then-tool routing.** [MCP-Zero](https://arxiv.org/abs/2506.01056) first narrows the search to the relevant servers, then ranks tools within them. On APIBank, plain query retrieval scores 71.6%, while agent requests with this routing reach 95–97% (top-1, their Table 1).
+- **The deployment is the catalog.** In ToolRet every step's gold tools come from its own dataset's toolset: we checked this for all 7,961 steps (`SUBSET_TOOLSET` in `data.py`). That toolset is what an agent deployed for the dataset is connected to, like its set of MCP servers.
+- **Duplicate tools.** [RoTBench](https://arxiv.org/abs/2401.08326) adds noise to tool *names* at five levels and leaves the documentation unchanged. ToolRet keeps every copy, so 99% of rotbench steps have about 38 tools with the gold tool's exact description. Exact-id recall there is a guess among identical tools. We report exact-id recall, and duplicate-aware recall in which a same-description copy from the same toolset also counts.
+
+**Three scopes for the prefilter** (`HybridPrefilter(scope=...)`):
+- **`pooled`:** the whole catalog, as before.
+- **`routed3`:** first the tools of the 3 toolsets whose best tool matches best (MCP-Zero-style routing, no labels).
+- **`toolset`:** first the tools of the step's own dataset toolset, i.e. the agent's connected tools.
+
+In all three, remaining slots are filled from the rest.
+
+| catalogs (single-tool steps) | prefilter | scope | R@50 | R@100 | R@200 |
+|---|---|---|---|---|---|
+| code + customized (1,936) | BM25 + MiniLM (current) | pooled | 0.618 | 0.687 | 0.749 |
+| | Tool-Embed + bge-ToolRet + BM25, expanded docs | pooled | 0.731 | 0.796 | 0.865 |
+| | same | routed3 (finds the right toolset 94% of the time) | 0.732 | 0.801 | 0.849 |
+| | BM25 + MiniLM, expanded docs | toolset | 0.830 | 0.895 | 0.944 |
+| | **Tool-Embed + bge-ToolRet (dense RRF), expanded docs** | **toolset** | **0.899** | **0.947** | **0.972** |
+| all of ToolRet (4,402) | BM25 + MiniLM, expanded docs | pooled | 0.672 | 0.721 | 0.766 |
+| | same | toolset | 0.818 | 0.866 | 0.904 |
+| | same, duplicate-aware | toolset | 0.838 | 0.905 | **0.945** |
+
+- **Scoping to the agent's toolset is the step change:** +0.15 to +0.18 R@50 for every encoder. Zero-shot routing does not get there, because similar tools exist in other toolsets. On customized it finds the right toolset 65% of the time with one guess; with three, 93–94% on code + customized and 86% on all of ToolRet.
+- **With the tool-trained ensemble, 95% single-tool recall needs K = 110 and 97% needs K = 190.** The remaining misses are concentrated in gorilla-huggingface (907 similar model APIs) and craft-vqa, both about 0.93 at K = 200. Every other toolset is at 0.95 or above by K = 150.
+- **Across all of ToolRet with only MiniLM,** the toolset scope reaches 0.945 at K = 200 once RoTBench's copies count. The web catalog was not run with the tool-trained encoders: their training queries overlap 10% of web steps (section 6), and encoding its 37k tools takes about 3 h on this CPU.
+- Multi-tool steps, where every gold tool must be found, stay much lower (0.50 at K = 200 on code + customized). Mercury's choice question picks one tool, so this section uses single-tool steps.
+
+**End to end with Mercury Decide.** `scripts/run_deploy_mercury.py` takes the toolset-scoped ensemble over expanded docs and picks K = 200, the smallest K whose recall on the 1,886 other single-tool steps reaches 0.95 + 0.02 (0.971). It then sends a stratified sample of 50 steps to Mercury Decide, one choice question over the 200 candidates each. Conformal sets are leave-one-out: each step's threshold is calibrated on the other 49, and a prefilter miss counts as a failure.
+
+| 50 single-tool steps, K = 200 | result |
+|---|---|
+| right tool among the 200 candidates (prefilter) | **0.98** (49 of 50; 0.971 on the 1,886 held-out steps) |
+| Mercury top-1 / top-5 / top-10 / top-20 | 0.46 / 0.60 / 0.72 / 0.80 |
+| conformal set at α = 0.05: coverage, avg size | **0.96**, 177 tools (median 200) |
+| α = 0.10 | 0.90, 63 tools (median 28.5) |
+| α = 0.20 | 0.80, 30 tools (median 6.5) |
+| cost per call | about 16k input tokens, 1.8 s median, 0 refusals |
+
+- **The prefilter target is met.** The right tool is among the candidates for 98% of the steps, and for 97% of the held-out steps.
+- **The end-to-end guarantee holds, but the set is not yet useful.** At α = 0.05 the set contains the right tool 96% of the time (target 95%), but only by keeping about 177 of the 200 tools. Mercury's ranking is now the limit, not the prefilter.
+- **Why Mercury ranks the labelled tool low here.** Several tools can do the job but ToolRet labels one of them:
+  - **gorilla-huggingface (3 of 13 top-1):** Mercury picked `svalabs/gbert-large-zeroshot-nli` for a German zero-shot classifier; the label is `Sahajtomar/German_Zeroshot`.
+  - **toolink:** Mercury picked `calculate_median`; the label is `find_median`.
+  - **toolalpaca:** Mercury picked `checkReputationScore`; the label is `checkIPReputation`.
+  - **toolbench-sam (0 of 5 top-1):** the label is the API that must be called first (`set_location`, `select_booking_type`), and Mercury picks another API the task also needs.
+  - By contrast, craft-math-algebra is 7 of 7 top-1.
+- **Mixing Mercury with the retriever's scores does not help.** The retriever's temperature was fitted on the 1,886 held-out steps. The blend's top-20 is 0.70 against 0.80 for Mercury alone, and its α = 0.1 set is 73 tools against 63.
+- **This mix of catalogs is harder than section 4's.** In section 4 (mostly web steps, K = 50), Mercury's top-1 was 0.75 when the tool reached it; here it is 0.47, with 4× more candidates.
+- **What would bring the set close to 100% at a useful size:**
+  - judge whether the chosen tool is equivalent to the labelled one, instead of requiring the exact id (none of the misses above has an identical description);
+  - fewer, sharper candidates per call through agent-written tool requests (MCP-Zero);
+  - more calibration steps. α = 0.02 needs at least 49 calibration points per step, and a prefilter recall above 0.98.
+
+## 8. Stress tests (RQ3/RQ4), hybrid score source, ~1,080 single-tool test steps
 
 `results/minilm/stress/report_hybrid.md`
 
@@ -154,7 +215,7 @@ On the customized catalog alone (982 steps; `results/prefilter/customized/report
 
   Embedding/RRF scores barely react to injected text. The case that matters is the decision model, which reads descriptions as instructions; that run is still to do.
 
-## 8. Not yet run
+## 9. Not yet run
 
 | run | needs |
 |---|---|

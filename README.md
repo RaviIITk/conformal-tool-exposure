@@ -47,7 +47,18 @@ ToolRet-trained bge-base + expanded            0.560     +0.056                 
 Tool-Embed-0.6B + expanded                     0.593     +0.089                355
 ```
 
-Tool-trained embedders ([ToolRet](https://arxiv.org/abs/2503.01763), [Tool-DE](https://arxiv.org/abs/2510.22670)) help most. Document expansion (LLM-written tool profiles, built offline) helps every prefilter at no query-time cost. General embedders help little on their own: LFM2.5-350M adds +0.010 (not significant), and Nemotron-3-Embed-1B adds +0.031 on the customized catalog at 488 ms per query. Agent-written tool requests are the largest remaining lever: ToolRet's instruction adds +0.107 on all of ToolRet, though that is an upper bound. Full numbers are in [`RESULTS.md`](RESULTS.md) and `results/`.
+Tool-trained embedders ([ToolRet](https://arxiv.org/abs/2503.01763), [Tool-DE](https://arxiv.org/abs/2510.22670)) help most. Document expansion (LLM-written tool profiles, built offline) helps every prefilter at no query-time cost. General embedders help little on their own: LFM2.5-350M adds +0.010 (not significant), and Nemotron-3-Embed-1B adds +0.031 on the customized catalog at 488 ms per query. Agent-written tool requests are the largest remaining lever: ToolRet's instruction adds +0.107 on all of ToolRet, though that is an upper bound.
+
+**Reaching 95%** (RESULTS.md section 7). ToolRet pools 35 datasets' toolsets into one catalog. Searching only the toolset the agent is actually connected to (its own dataset's tools, as in MCP-Zero's server-then-tool routing) is the step change. With a Tool-Embed + bge-ToolRet ensemble over expanded docs, the right tool is among K = 200 candidates for 97% of single-tool requests on code + customized (K = 110 for 95%; the whole catalog would need K ≈ 1,700). End to end with Mercury Decide on 50 of these requests:
+
+```
+right tool among the 200 candidates          98%
+Mercury top-1 / top-5 / top-20                46% / 60% / 80%
+conformal set, alpha = 0.05                   96% coverage, 177 tools on average
+conformal set, alpha = 0.10                   90% coverage, 63 tools (median 28)
+```
+
+The prefilter is no longer the limit; Mercury's ranking is. On these catalogs several tools can do the job and ToolRet labels only one (e.g. two German zero-shot classifiers, `find_median` vs `calculate_median`), so a 95% set still has to keep most candidates. Full numbers are in [`RESULTS.md`](RESULTS.md) and `results/`.
 
 ## Setup
 
@@ -72,13 +83,14 @@ One decision-model request scores one agent step in either mode. Responses are c
 | Phase 1 with the decision model (Mercury Decide; 47 calls with these flags) | `.venv/bin/python scripts/run_phase1.py --max-steps 59 --single-tool-only --sources bm25,dense,hybrid,ce,mercury-choice` | OpenRouter |
 | Phase 1 at scale | `.venv/bin/python scripts/run_phase1.py --max-steps 1200 --sources bm25,dense,hybrid,ce,ce-pred,mercury-choice,mercury-predicate` | OpenRouter |
 | Prefilter K sweep: prefilter recall and final results (dense + Mercury Decide) at each K; `--api-k-values` picks the K values Mercury runs at | `.venv/bin/python scripts/run_k_sweep.py --max-steps 59 --single-tool-only --encoder sentence-transformers/multi-qa-MiniLM-L6-cos-v1 --k-values 10,20,30,50,100 --api-k-values 100` | OpenRouter |
-| Prefilter benchmark: recall@K of BM25, embedders, expanded tool docs (no API calls) | `.venv/bin/python scripts/run_prefilter_bench.py --tag code_customized --categories code,customized --queries query --encoders sentence-transformers/multi-qa-MiniLM-L6-cos-v1,Lux1997/Tool-Embed-0.6B` | no |
+| Prefilter benchmark: recall@K of BM25, embedders and ensembles (`A+B`), expanded tool docs, scopes (`--scopes pooled,routed3,toolset`) (no API calls) | `.venv/bin/python scripts/run_prefilter_bench.py --tag code_customized --categories code,customized --queries query --encoders sentence-transformers/multi-qa-MiniLM-L6-cos-v1,Lux1997/Tool-Embed-0.6B` | no |
+| End to end with the agent's own toolset as the prefilter, then Mercury Decide (one call per step) | `.venv/bin/python scripts/run_deploy_mercury.py --n 50` | OpenRouter |
 | Phase 3, RQ3/RQ4: drift, shift, poisoned descriptions | `.venv/bin/python scripts/run_stress.py --source ce` | no (OpenRouter with `--source mercury-choice`) |
 | Phase 2 proxy, RQ2: agent success per token by exposure condition | `.venv/bin/python scripts/run_phase2_proxy.py --max-steps 1500 --n-steps 300` | OpenRouter + agent chat model |
 | Phase 4, RQ5: latency of adding risk questions to the same call | `.venv/bin/python scripts/run_governance.py --max-steps 1500 --n-steps 20` | OpenRouter |
 | LangChain agent demo | `.venv/bin/python scripts/demo_agent.py` | no (scripted agent); yes for a real agent |
 
-To run any phase with the stronger prefilter, add `--encoder Lux1997/Tool-Embed-0.6B --tool-docs expanded`. Each script writes `results/<phase>/report.md`, JSON and figures. Every API response is cached in `cache/*.jsonl`, so reruns cost nothing. On a slow network, `HF_HUB_DISABLE_XET=1` makes Hugging Face downloads use plain HTTPS.
+To run any phase with the stronger prefilter, add `--encoder Lux1997/Tool-Embed-0.6B+mangopy/ToolRet-trained-bge-base-en-v1.5 --no-bm25 --tool-docs expanded --prefilter-scope toolset`. Each script writes `results/<phase>/report.md`, JSON and figures. Every API response is cached in `cache/*.jsonl`, so reruns cost nothing. On a slow network, `HF_HUB_DISABLE_XET=1` makes Hugging Face downloads use plain HTTPS.
 
 Cost: Mercury Decide's `:free` variant costs $0; Phase 1 sends about 2.7k input tokens per call at K = 50. If you use the OpenAI Decisions API instead, 1,500 steps cost about $0.45 per mode at $0.10/M input tokens.
 
@@ -87,7 +99,7 @@ Cost: Mercury Decide's `:free` variant costs $0; Phase 1 sends about 2.7k input 
 | File | Design section |
 |---|---|
 | `src/cte/data.py` | ToolRet catalogs and steps (§9) |
-| `src/cte/retrieval.py` | Stage 1 hybrid prefilter, recall@K (§7.4) |
+| `src/cte/retrieval.py` | Stage 1 hybrid prefilter (BM25 + encoder ensembles, RRF; pooled, routed or own-toolset scope), recall@K (§7.4) |
 | `src/cte/scorers.py` | local score sources with temperature/Platt calibration (§10.2) |
 | `src/cte/openai_scorers.py` | Jev-compatible decision-model client (OpenRouter Mercury Decide; Mode A `choice`, Mode B `noul`), OpenAI Decisions API, log-prob baseline (§7.5) |
 | `src/cte/conformal.py` | LAC, APS, conformal risk control, end-to-end +∞ scores, k_max cap, fallback, ACI (§8) |

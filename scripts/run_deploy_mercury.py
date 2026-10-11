@@ -21,6 +21,7 @@ from pathlib import Path
 
 import numpy as np
 from dotenv import load_dotenv
+from scipy.optimize import minimize_scalar
 
 from cte import conformal as cp
 from cte.data import expand_tool_docs, load_toolret, toolset_of
@@ -31,7 +32,7 @@ from cte.pipeline import write_json
 from cte.report import md_table
 from cte.retrieval import Encoder, HybridPrefilter, build_pool
 
-ALPHAS = (0.02, 0.05, 0.10)
+ALPHAS = (0.02, 0.05, 0.10, 0.20)
 
 
 def duplicate_mask(pool, originals: dict) -> np.ndarray:
@@ -57,6 +58,16 @@ def loo_lac(probs: np.ndarray, gold_mask: np.ndarray, n_gold: np.ndarray, alpha:
         q = cp.conformal_quantile(np.delete(scores, i), alpha)
         sets[i] = cp.lac_sets(probs[i:i + 1], q)[0]
     return sets
+
+
+def retrieval_probs(pool, fit_pool) -> np.ndarray:
+    """Softmax over the candidates' mean cosine, with the temperature fit (NLL) on other steps."""
+    def soft(x, t):
+        z = x / t - (x / t).max(1, keepdims=True)
+        return np.exp(z) / np.exp(z).sum(1, keepdims=True)
+    hit = fit_pool.hit_all
+    nll = lambda lt: -np.log(soft(fit_pool.dense[hit], np.exp(lt))[fit_pool.gold_mask[hit]] + 1e-12).mean()
+    return soft(pool.dense, np.exp(minimize_scalar(nll, bounds=(-6, 2), method="bounded").x))
 
 
 def hit_at(probs: np.ndarray, gold_mask: np.ndarray, k: int) -> float:
@@ -134,6 +145,16 @@ def main() -> None:
                 "loo_empty": float((sets.sum(1) == 0).mean()), "loo_theory": split_coverage_theory(n - 1, a),
                 "split_coverage": rep["coverage"], "split_coverage_p05": rep["coverage_p05"],
                 "split_avg_size": rep["avg_size"], "split_threshold_finite": rep["threshold_finite"]}
+    # Stage-2 alternatives on the same candidates: the retriever alone, and a 50/50 blend with Mercury
+    retr = retrieval_probs(pool, pool_others.truncate(k))
+    res["stage2_alternatives"] = {}
+    for name, sc in (("mercury", probs), ("retrieval", retr), ("0.5 mercury + 0.5 retrieval", 0.5 * probs + 0.5 * retr)):
+        row = {f"hit@{h}": hit_at(sc, pool.gold_mask, h) for h in (1, 5, 10, 20)}
+        for a in (0.05, 0.10, 0.20):
+            sets = loo_lac(sc, pool.gold_mask, ng, a)
+            row[f"coverage|{a}"] = float((sets & pool.gold_mask).any(1).mean())
+            row[f"avg_size|{a}"] = float(sets.sum(1).mean())
+        res["stage2_alternatives"][name] = row
     write_json(args.out / "results.json", res)
     write_report(res, args.out)
     for a in ALPHAS:
@@ -179,6 +200,16 @@ def write_report(res: dict, out: Path) -> None:
                  [[k.split("|")[0], float(k.split("|")[1]), 1 - float(k.split("|")[1]), r["loo_coverage"],
                    r["loo_theory"]["p05"], r["loo_avg_size"], r["loo_median_size"], r["loo_singleton"], r["loo_empty"],
                    r["split_coverage"], r["split_threshold_finite"]] for k, r in res["conformal"].items()]),
+        "",
+        "## Stage-2 alternatives on the same candidates (exact match, leave-one-out)",
+        "",
+        "`retrieval` = softmax over the candidates' mean cosine, temperature fit on the other steps.",
+        "",
+        md_table(["Stage-2 score", "hit@1", "hit@5", "hit@10", "hit@20", "coverage α=0.05", "size α=0.05",
+                  "coverage α=0.1", "size α=0.1", "coverage α=0.2", "size α=0.2"],
+                 [[n, r["hit@1"], r["hit@5"], r["hit@10"], r["hit@20"], r["coverage|0.05"], r["avg_size|0.05"],
+                   r["coverage|0.1"], r["avg_size|0.1"], r["coverage|0.2"], r["avg_size|0.2"]]
+                  for n, r in res["stage2_alternatives"].items()]),
         "",
         "## API usage",
         "",
