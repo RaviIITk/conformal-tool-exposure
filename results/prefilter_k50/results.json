@@ -1,0 +1,810 @@
+{
+  "n": 1936,
+  "categories": [
+    "code",
+    "customized"
+  ],
+  "target": 0.95,
+  "folds": 5,
+  "base": "base: Tool-Embed-0.6B + ToolRet-trained-bge-base-en-v1.5",
+  "gold_tool_used_before": 0.3910123966942149,
+  "usage_gates": {
+    "base: Tool-Embed-0.6B + ToolRet-trained-bge-base-en-v1.5": {
+      "0": {
+        "w": 0.5,
+        "tau": 0.7
+      },
+      "1": {
+        "w": 0.5,
+        "tau": 0.7
+      },
+      "2": {
+        "w": 0.5,
+        "tau": 0.7
+      },
+      "3": {
+        "w": 0.5,
+        "tau": 0.7
+      },
+      "4": {
+        "w": 0.5,
+        "tau": 0.7
+      }
+    },
+    "base + ToolRet-trained-e5-large-v2": {
+      "0": {
+        "w": 1.0,
+        "tau": 0.8
+      },
+      "1": {
+        "w": 0.5,
+        "tau": 0.8
+      },
+      "2": {
+        "w": 1.0,
+        "tau": 0.8
+      },
+      "3": {
+        "w": 1.0,
+        "tau": 0.8
+      },
+      "4": {
+        "w": 1.0,
+        "tau": 0.8
+      }
+    },
+    "base: Tool-Embed-0.6B + ToolRet-trained-bge-base-en-v1.5 + Gorilla train requests (kNN)": {
+      "0": {
+        "w": 0.5,
+        "tau": 0.7
+      },
+      "1": {
+        "w": 0.5,
+        "tau": 0.7
+      },
+      "2": {
+        "w": 0.5,
+        "tau": 0.7
+      },
+      "3": {
+        "w": 0.5,
+        "tau": 0.7
+      },
+      "4": {
+        "w": 0.25,
+        "tau": 0.7
+      }
+    },
+    "base + ToolRet-trained-e5-large-v2 + Gorilla train requests (kNN)": {
+      "0": {
+        "w": 1.0,
+        "tau": 0.8
+      },
+      "1": {
+        "w": 1.0,
+        "tau": 0.8
+      },
+      "2": {
+        "w": 1.0,
+        "tau": 0.8
+      },
+      "3": {
+        "w": 1.0,
+        "tau": 0.8
+      },
+      "4": {
+        "w": 1.0,
+        "tau": 0.8
+      }
+    }
+  },
+  "tool_examples": {
+    "examples": 8131,
+    "tools": 907,
+    "near_duplicates_dropped": 281
+  },
+  "methods": {
+    "Tool-Embed-0.6B": {
+      "R@10": 0.6549586776859504,
+      "R@20": 0.7494834710743802,
+      "R@30": 0.8130165289256198,
+      "R@50": 0.8755165289256198,
+      "R@100": 0.9194214876033058,
+      "R@200": 0.9581611570247934,
+      "K for target": 166,
+      "dR@50": {
+        "mean_diff": -0.020144628099173553,
+        "ci_low": -0.030991735537190084,
+        "ci_high": -0.00981404958677686,
+        "p": 0.001
+      }
+    },
+    "ToolRet-trained-bge-base-en-v1.5": {
+      "R@10": 0.6508264462809917,
+      "R@20": 0.7618801652892562,
+      "R@30": 0.806301652892562,
+      "R@50": 0.8558884297520661,
+      "R@100": 0.9256198347107438,
+      "R@200": 0.9705578512396694,
+      "K for target": 142,
+      "dR@50": {
+        "mean_diff": -0.03977272727272727,
+        "ci_low": -0.05165289256198347,
+        "ci_high": -0.028409090909090908,
+        "p": 0.0005
+      }
+    },
+    "ToolRet-trained-bge-large-en-v1.5": {
+      "R@10": 0.6678719008264463,
+      "R@20": 0.7520661157024794,
+      "R@30": 0.8078512396694215,
+      "R@50": 0.862603305785124,
+      "R@100": 0.9349173553719008,
+      "R@200": 0.9762396694214877,
+      "K for target": 122,
+      "dR@50": {
+        "mean_diff": -0.03305785123966942,
+        "ci_low": -0.04648760330578512,
+        "ci_high": -0.019111570247933883,
+        "p": 0.0005
+      }
+    },
+    "ToolRet-trained-e5-large-v2": {
+      "R@10": 0.6611570247933884,
+      "R@20": 0.7660123966942148,
+      "R@30": 0.8181818181818182,
+      "R@50": 0.8853305785123967,
+      "R@100": 0.9369834710743802,
+      "R@200": 0.9700413223140496,
+      "K for target": 122,
+      "dR@50": {
+        "mean_diff": -0.010330578512396695,
+        "ci_low": -0.02169421487603306,
+        "ci_high": 0.0025826446280991736,
+        "p": 0.12
+      }
+    },
+    "base: Tool-Embed-0.6B + ToolRet-trained-bge-base-en-v1.5": {
+      "R@10": 0.6973140495867769,
+      "R@20": 0.793904958677686,
+      "R@30": 0.8414256198347108,
+      "R@50": 0.8956611570247934,
+      "R@100": 0.9478305785123967,
+      "R@200": 0.9731404958677686,
+      "K for target": 110
+    },
+    "base + ToolRet-trained-bge-large-en-v1.5": {
+      "R@10": 0.7024793388429752,
+      "R@20": 0.7964876033057852,
+      "R@30": 0.84349173553719,
+      "R@50": 0.9013429752066116,
+      "R@100": 0.956095041322314,
+      "R@200": 0.9772727272727273,
+      "K for target": 89,
+      "dR@50": {
+        "mean_diff": 0.005681818181818182,
+        "ci_low": -0.002066115702479339,
+        "ci_high": 0.013946280991735538,
+        "p": 0.179
+      }
+    },
+    "base + ToolRet-trained-e5-large-v2": {
+      "R@10": 0.7148760330578512,
+      "R@20": 0.8016528925619835,
+      "R@30": 0.8527892561983471,
+      "R@50": 0.9132231404958677,
+      "R@100": 0.9524793388429752,
+      "R@200": 0.9783057851239669,
+      "K for target": 95,
+      "dR@50": {
+        "mean_diff": 0.01756198347107438,
+        "ci_low": 0.00981404958677686,
+        "ci_high": 0.025826446280991736,
+        "p": 0.0005
+      }
+    },
+    "base + ToolRet-trained-bge-large-en-v1.5 + ToolRet-trained-e5-large-v2": {
+      "R@10": 0.7086776859504132,
+      "R@20": 0.806301652892562,
+      "R@30": 0.8512396694214877,
+      "R@50": 0.9080578512396694,
+      "R@100": 0.9555785123966942,
+      "R@200": 0.9783057851239669,
+      "K for target": 91,
+      "dR@50": {
+        "mean_diff": 0.012396694214876033,
+        "ci_low": 0.003615702479338843,
+        "ci_high": 0.021177685950413222,
+        "p": 0.003
+      }
+    },
+    "usage kNN only": {
+      "R@10": 0.35330578512396693,
+      "R@20": 0.39669421487603307,
+      "R@30": 0.4018595041322314,
+      "R@50": 0.422004132231405,
+      "R@100": 0.4705578512396694,
+      "R@200": 0.6864669421487604,
+      "K for target": 335,
+      "dR@50": {
+        "mean_diff": -0.47365702479338845,
+        "ci_low": -0.4969137396694215,
+        "ci_high": -0.4498837809917356,
+        "p": 0.0005
+      }
+    },
+    "base: Tool-Embed-0.6B + ToolRet-trained-bge-base-en-v1.5 + usage kNN (plain RRF)": {
+      "R@10": 0.46797520661157027,
+      "R@20": 0.6833677685950413,
+      "R@30": 0.8073347107438017,
+      "R@50": 0.862603305785124,
+      "R@100": 0.9245867768595041,
+      "R@200": 0.9617768595041323,
+      "K for target": 159,
+      "dR@50": {
+        "mean_diff": -0.03305785123966942,
+        "ci_low": -0.045983987603305784,
+        "ci_high": -0.02066115702479339,
+        "p": 0.0005
+      }
+    },
+    "base: Tool-Embed-0.6B + ToolRet-trained-bge-base-en-v1.5 + usage kNN (gated)": {
+      "R@10": 0.699896694214876,
+      "R@20": 0.8238636363636364,
+      "R@30": 0.868801652892562,
+      "R@50": 0.9116735537190083,
+      "R@100": 0.9473140495867769,
+      "R@200": 0.9736570247933884,
+      "K for target": 106,
+      "dR@50": {
+        "mean_diff": 0.016012396694214875,
+        "ci_low": 0.00878099173553719,
+        "ci_high": 0.023760330578512397,
+        "p": 0.0005
+      }
+    },
+    "base + ToolRet-trained-e5-large-v2 + usage kNN (plain RRF)": {
+      "R@10": 0.5909090909090909,
+      "R@20": 0.7944214876033058,
+      "R@30": 0.8476239669421488,
+      "R@50": 0.8941115702479339,
+      "R@100": 0.9390495867768595,
+      "R@200": 0.9705578512396694,
+      "K for target": 125,
+      "dR@50": {
+        "mean_diff": -0.0015495867768595042,
+        "ci_low": -0.012396694214876033,
+        "ci_high": 0.009826962809917286,
+        "p": 0.867
+      }
+    },
+    "base + ToolRet-trained-e5-large-v2 + usage kNN (gated)": {
+      "R@10": 0.7458677685950413,
+      "R@20": 0.8295454545454546,
+      "R@30": 0.8739669421487604,
+      "R@50": 0.9183884297520661,
+      "R@100": 0.9540289256198347,
+      "R@200": 0.9793388429752066,
+      "K for target": 92,
+      "dR@50": {
+        "mean_diff": 0.022727272727272728,
+        "ci_low": 0.014462809917355372,
+        "ci_high": 0.031508264462809916,
+        "p": 0.0005
+      }
+    },
+    "base: Tool-Embed-0.6B + ToolRet-trained-bge-base-en-v1.5 + Gorilla train requests (kNN)": {
+      "R@10": 0.7133264462809917,
+      "R@20": 0.8125,
+      "R@30": 0.8605371900826446,
+      "R@50": 0.9152892561983471,
+      "R@100": 0.9648760330578512,
+      "R@200": 0.9860537190082644,
+      "K for target": 73,
+      "dR@50": {
+        "mean_diff": 0.01962809917355372,
+        "ci_low": 0.013429752066115703,
+        "ci_high": 0.02634297520661157,
+        "p": 0.0005
+      }
+    },
+    "base: Tool-Embed-0.6B + ToolRet-trained-bge-base-en-v1.5 + Gorilla train requests (centroid)": {
+      "R@10": 0.7169421487603306,
+      "R@20": 0.8135330578512396,
+      "R@30": 0.8657024793388429,
+      "R@50": 0.9209710743801653,
+      "R@100": 0.9659090909090909,
+      "R@200": 0.987603305785124,
+      "K for target": 70,
+      "dR@50": {
+        "mean_diff": 0.0253099173553719,
+        "ci_low": 0.01859504132231405,
+        "ci_high": 0.03254132231404959,
+        "p": 0.0005
+      }
+    },
+    "base: Tool-Embed-0.6B + ToolRet-trained-bge-base-en-v1.5 + Gorilla train requests (kNN) + usage kNN (gated)": {
+      "R@10": 0.7267561983471075,
+      "R@20": 0.8409090909090909,
+      "R@30": 0.887396694214876,
+      "R@50": 0.925103305785124,
+      "R@100": 0.9648760330578512,
+      "R@200": 0.9865702479338843,
+      "K for target": 69,
+      "dR@50": {
+        "mean_diff": 0.029442148760330578,
+        "ci_low": 0.021681301652892563,
+        "ci_high": 0.038223140495867766,
+        "p": 0.0005
+      }
+    },
+    "base + ToolRet-trained-e5-large-v2 + Gorilla train requests (kNN)": {
+      "R@10": 0.7267561983471075,
+      "R@20": 0.8212809917355371,
+      "R@30": 0.8713842975206612,
+      "R@50": 0.9292355371900827,
+      "R@100": 0.9638429752066116,
+      "R@200": 0.987603305785124,
+      "K for target": 71,
+      "dR@50": {
+        "mean_diff": 0.033574380165289255,
+        "ci_low": 0.024793388429752067,
+        "ci_high": 0.042871900826446284,
+        "p": 0.0005
+      }
+    },
+    "base + ToolRet-trained-e5-large-v2 + Gorilla train requests (centroid)": {
+      "R@10": 0.7303719008264463,
+      "R@20": 0.8238636363636364,
+      "R@30": 0.875,
+      "R@50": 0.9307851239669421,
+      "R@100": 0.9648760330578512,
+      "R@200": 0.9881198347107438,
+      "K for target": 69,
+      "dR@50": {
+        "mean_diff": 0.03512396694214876,
+        "ci_low": 0.02634297520661157,
+        "ci_high": 0.04442148760330578,
+        "p": 0.0005
+      }
+    },
+    "base + ToolRet-trained-e5-large-v2 + Gorilla train requests (kNN) + usage kNN (gated)": {
+      "R@10": 0.7629132231404959,
+      "R@20": 0.8533057851239669,
+      "R@30": 0.8946280991735537,
+      "R@50": 0.9338842975206612,
+      "R@100": 0.9648760330578512,
+      "R@200": 0.987603305785124,
+      "K for target": 67,
+      "dR@50": {
+        "mean_diff": 0.038223140495867766,
+        "ci_low": 0.02891270661157025,
+        "ci_high": 0.04803719008264463,
+        "p": 0.0005
+      }
+    }
+  },
+  "by_subset": {
+    "Tool-Embed-0.6B": {
+      "appbench": 1.0,
+      "craft-math-algebra": 0.9892857142857143,
+      "craft-tabmwp": 0.8333333333333334,
+      "craft-vqa": 0.595,
+      "gorilla-huggingface": 0.79,
+      "gorilla-pytorch": 1.0,
+      "gorilla-tensor": 1.0,
+      "gpt4tools": 1.0,
+      "gta": 1.0,
+      "metatool": 0.9608938547486033,
+      "taskbench-huggingface": 1.0,
+      "taskbench-multimedia": 1.0,
+      "toolalpaca": 0.9574468085106383,
+      "toolbench-sam": 0.9581151832460733,
+      "toolink": 0.9731543624161074
+    },
+    "ToolRet-trained-bge-base-en-v1.5": {
+      "appbench": 1.0,
+      "craft-math-algebra": 0.9714285714285714,
+      "craft-tabmwp": 0.7873563218390804,
+      "craft-vqa": 0.745,
+      "gorilla-huggingface": 0.796,
+      "gorilla-pytorch": 1.0,
+      "gorilla-tensor": 1.0,
+      "gpt4tools": 1.0,
+      "gta": 1.0,
+      "metatool": 0.9217877094972067,
+      "taskbench-huggingface": 1.0,
+      "taskbench-multimedia": 1.0,
+      "toolalpaca": 0.9574468085106383,
+      "toolbench-sam": 0.743455497382199,
+      "toolink": 0.9060402684563759
+    },
+    "ToolRet-trained-bge-large-en-v1.5": {
+      "appbench": 1.0,
+      "craft-math-algebra": 0.9821428571428571,
+      "craft-tabmwp": 0.8275862068965517,
+      "craft-vqa": 0.765,
+      "gorilla-huggingface": 0.798,
+      "gorilla-pytorch": 1.0,
+      "gorilla-tensor": 1.0,
+      "gpt4tools": 1.0,
+      "gta": 1.0,
+      "metatool": 0.9441340782122905,
+      "taskbench-huggingface": 1.0,
+      "taskbench-multimedia": 1.0,
+      "toolalpaca": 0.9574468085106383,
+      "toolbench-sam": 0.7172774869109948,
+      "toolink": 0.8993288590604027
+    },
+    "ToolRet-trained-e5-large-v2": {
+      "appbench": 1.0,
+      "craft-math-algebra": 0.9785714285714285,
+      "craft-tabmwp": 0.7931034482758621,
+      "craft-vqa": 0.78,
+      "gorilla-huggingface": 0.768,
+      "gorilla-pytorch": 1.0,
+      "gorilla-tensor": 1.0,
+      "gpt4tools": 1.0,
+      "gta": 1.0,
+      "metatool": 0.9553072625698324,
+      "taskbench-huggingface": 1.0,
+      "taskbench-multimedia": 1.0,
+      "toolalpaca": 0.9574468085106383,
+      "toolbench-sam": 0.9790575916230366,
+      "toolink": 0.9731543624161074
+    },
+    "base: Tool-Embed-0.6B + ToolRet-trained-bge-base-en-v1.5": {
+      "appbench": 1.0,
+      "craft-math-algebra": 0.9892857142857143,
+      "craft-tabmwp": 0.8505747126436781,
+      "craft-vqa": 0.745,
+      "gorilla-huggingface": 0.82,
+      "gorilla-pytorch": 1.0,
+      "gorilla-tensor": 1.0,
+      "gpt4tools": 1.0,
+      "gta": 1.0,
+      "metatool": 0.9720670391061452,
+      "taskbench-huggingface": 1.0,
+      "taskbench-multimedia": 1.0,
+      "toolalpaca": 0.9680851063829787,
+      "toolbench-sam": 0.900523560209424,
+      "toolink": 0.9664429530201343
+    },
+    "base + ToolRet-trained-bge-large-en-v1.5": {
+      "appbench": 1.0,
+      "craft-math-algebra": 0.9892857142857143,
+      "craft-tabmwp": 0.8620689655172413,
+      "craft-vqa": 0.785,
+      "gorilla-huggingface": 0.84,
+      "gorilla-pytorch": 1.0,
+      "gorilla-tensor": 1.0,
+      "gpt4tools": 1.0,
+      "gta": 1.0,
+      "metatool": 0.9776536312849162,
+      "taskbench-huggingface": 1.0,
+      "taskbench-multimedia": 1.0,
+      "toolalpaca": 0.9787234042553191,
+      "toolbench-sam": 0.837696335078534,
+      "toolink": 0.9731543624161074
+    },
+    "base + ToolRet-trained-e5-large-v2": {
+      "appbench": 1.0,
+      "craft-math-algebra": 0.9892857142857143,
+      "craft-tabmwp": 0.8448275862068966,
+      "craft-vqa": 0.805,
+      "gorilla-huggingface": 0.834,
+      "gorilla-pytorch": 1.0,
+      "gorilla-tensor": 1.0,
+      "gpt4tools": 1.0,
+      "gta": 1.0,
+      "metatool": 0.9888268156424581,
+      "taskbench-huggingface": 1.0,
+      "taskbench-multimedia": 1.0,
+      "toolalpaca": 0.9680851063829787,
+      "toolbench-sam": 0.9633507853403142,
+      "toolink": 0.9731543624161074
+    },
+    "base + ToolRet-trained-bge-large-en-v1.5 + ToolRet-trained-e5-large-v2": {
+      "appbench": 1.0,
+      "craft-math-algebra": 0.9892857142857143,
+      "craft-tabmwp": 0.8620689655172413,
+      "craft-vqa": 0.8,
+      "gorilla-huggingface": 0.844,
+      "gorilla-pytorch": 1.0,
+      "gorilla-tensor": 1.0,
+      "gpt4tools": 1.0,
+      "gta": 1.0,
+      "metatool": 0.9664804469273743,
+      "taskbench-huggingface": 1.0,
+      "taskbench-multimedia": 1.0,
+      "toolalpaca": 0.9787234042553191,
+      "toolbench-sam": 0.8900523560209425,
+      "toolink": 0.9731543624161074
+    },
+    "usage kNN only": {
+      "appbench": 1.0,
+      "craft-math-algebra": 0.0,
+      "craft-tabmwp": 0.0,
+      "craft-vqa": 0.0,
+      "gorilla-huggingface": 0.32,
+      "gorilla-pytorch": 1.0,
+      "gorilla-tensor": 1.0,
+      "gpt4tools": 1.0,
+      "gta": 1.0,
+      "metatool": 0.5977653631284916,
+      "taskbench-huggingface": 1.0,
+      "taskbench-multimedia": 1.0,
+      "toolalpaca": 0.8617021276595744,
+      "toolbench-sam": 1.0,
+      "toolink": 0.7315436241610739
+    },
+    "base: Tool-Embed-0.6B + ToolRet-trained-bge-base-en-v1.5 + usage kNN (plain RRF)": {
+      "appbench": 1.0,
+      "craft-math-algebra": 0.9678571428571429,
+      "craft-tabmwp": 0.603448275862069,
+      "craft-vqa": 0.625,
+      "gorilla-huggingface": 0.796,
+      "gorilla-pytorch": 1.0,
+      "gorilla-tensor": 1.0,
+      "gpt4tools": 1.0,
+      "gta": 1.0,
+      "metatool": 0.9553072625698324,
+      "taskbench-huggingface": 1.0,
+      "taskbench-multimedia": 1.0,
+      "toolalpaca": 1.0,
+      "toolbench-sam": 0.9947643979057592,
+      "toolink": 0.9865771812080537
+    },
+    "base: Tool-Embed-0.6B + ToolRet-trained-bge-base-en-v1.5 + usage kNN (gated)": {
+      "appbench": 1.0,
+      "craft-math-algebra": 0.9892857142857143,
+      "craft-tabmwp": 0.8505747126436781,
+      "craft-vqa": 0.74,
+      "gorilla-huggingface": 0.84,
+      "gorilla-pytorch": 1.0,
+      "gorilla-tensor": 1.0,
+      "gpt4tools": 1.0,
+      "gta": 1.0,
+      "metatool": 0.9720670391061452,
+      "taskbench-huggingface": 1.0,
+      "taskbench-multimedia": 1.0,
+      "toolalpaca": 0.9787234042553191,
+      "toolbench-sam": 1.0,
+      "toolink": 0.9798657718120806
+    },
+    "base + ToolRet-trained-e5-large-v2 + usage kNN (plain RRF)": {
+      "appbench": 1.0,
+      "craft-math-algebra": 0.9821428571428571,
+      "craft-tabmwp": 0.7068965517241379,
+      "craft-vqa": 0.74,
+      "gorilla-huggingface": 0.82,
+      "gorilla-pytorch": 1.0,
+      "gorilla-tensor": 1.0,
+      "gpt4tools": 1.0,
+      "gta": 1.0,
+      "metatool": 0.9776536312849162,
+      "taskbench-huggingface": 1.0,
+      "taskbench-multimedia": 1.0,
+      "toolalpaca": 1.0,
+      "toolbench-sam": 0.9947643979057592,
+      "toolink": 0.9865771812080537
+    },
+    "base + ToolRet-trained-e5-large-v2 + usage kNN (gated)": {
+      "appbench": 1.0,
+      "craft-math-algebra": 0.9892857142857143,
+      "craft-tabmwp": 0.8448275862068966,
+      "craft-vqa": 0.805,
+      "gorilla-huggingface": 0.84,
+      "gorilla-pytorch": 1.0,
+      "gorilla-tensor": 1.0,
+      "gpt4tools": 1.0,
+      "gta": 1.0,
+      "metatool": 0.9888268156424581,
+      "taskbench-huggingface": 1.0,
+      "taskbench-multimedia": 1.0,
+      "toolalpaca": 0.9680851063829787,
+      "toolbench-sam": 1.0,
+      "toolink": 0.9731543624161074
+    },
+    "base: Tool-Embed-0.6B + ToolRet-trained-bge-base-en-v1.5 + Gorilla train requests (kNN)": {
+      "appbench": 1.0,
+      "craft-math-algebra": 0.9892857142857143,
+      "craft-tabmwp": 0.8505747126436781,
+      "craft-vqa": 0.745,
+      "gorilla-huggingface": 0.896,
+      "gorilla-pytorch": 1.0,
+      "gorilla-tensor": 1.0,
+      "gpt4tools": 1.0,
+      "gta": 1.0,
+      "metatool": 0.9720670391061452,
+      "taskbench-huggingface": 1.0,
+      "taskbench-multimedia": 1.0,
+      "toolalpaca": 0.9680851063829787,
+      "toolbench-sam": 0.900523560209424,
+      "toolink": 0.9664429530201343
+    },
+    "base: Tool-Embed-0.6B + ToolRet-trained-bge-base-en-v1.5 + Gorilla train requests (centroid)": {
+      "appbench": 1.0,
+      "craft-math-algebra": 0.9892857142857143,
+      "craft-tabmwp": 0.8505747126436781,
+      "craft-vqa": 0.745,
+      "gorilla-huggingface": 0.918,
+      "gorilla-pytorch": 1.0,
+      "gorilla-tensor": 1.0,
+      "gpt4tools": 1.0,
+      "gta": 1.0,
+      "metatool": 0.9720670391061452,
+      "taskbench-huggingface": 1.0,
+      "taskbench-multimedia": 1.0,
+      "toolalpaca": 0.9680851063829787,
+      "toolbench-sam": 0.900523560209424,
+      "toolink": 0.9664429530201343
+    },
+    "base: Tool-Embed-0.6B + ToolRet-trained-bge-base-en-v1.5 + Gorilla train requests (kNN) + usage kNN (gated)": {
+      "appbench": 1.0,
+      "craft-math-algebra": 0.9892857142857143,
+      "craft-tabmwp": 0.8505747126436781,
+      "craft-vqa": 0.74,
+      "gorilla-huggingface": 0.894,
+      "gorilla-pytorch": 1.0,
+      "gorilla-tensor": 1.0,
+      "gpt4tools": 1.0,
+      "gta": 1.0,
+      "metatool": 0.9720670391061452,
+      "taskbench-huggingface": 1.0,
+      "taskbench-multimedia": 1.0,
+      "toolalpaca": 0.9787234042553191,
+      "toolbench-sam": 0.9947643979057592,
+      "toolink": 0.9798657718120806
+    },
+    "base + ToolRet-trained-e5-large-v2 + Gorilla train requests (kNN)": {
+      "appbench": 1.0,
+      "craft-math-algebra": 0.9892857142857143,
+      "craft-tabmwp": 0.8448275862068966,
+      "craft-vqa": 0.805,
+      "gorilla-huggingface": 0.896,
+      "gorilla-pytorch": 1.0,
+      "gorilla-tensor": 1.0,
+      "gpt4tools": 1.0,
+      "gta": 1.0,
+      "metatool": 0.9888268156424581,
+      "taskbench-huggingface": 1.0,
+      "taskbench-multimedia": 1.0,
+      "toolalpaca": 0.9680851063829787,
+      "toolbench-sam": 0.9633507853403142,
+      "toolink": 0.9731543624161074
+    },
+    "base + ToolRet-trained-e5-large-v2 + Gorilla train requests (centroid)": {
+      "appbench": 1.0,
+      "craft-math-algebra": 0.9892857142857143,
+      "craft-tabmwp": 0.8448275862068966,
+      "craft-vqa": 0.805,
+      "gorilla-huggingface": 0.902,
+      "gorilla-pytorch": 1.0,
+      "gorilla-tensor": 1.0,
+      "gpt4tools": 1.0,
+      "gta": 1.0,
+      "metatool": 0.9888268156424581,
+      "taskbench-huggingface": 1.0,
+      "taskbench-multimedia": 1.0,
+      "toolalpaca": 0.9680851063829787,
+      "toolbench-sam": 0.9633507853403142,
+      "toolink": 0.9731543624161074
+    },
+    "base + ToolRet-trained-e5-large-v2 + Gorilla train requests (kNN) + usage kNN (gated)": {
+      "appbench": 1.0,
+      "craft-math-algebra": 0.9892857142857143,
+      "craft-tabmwp": 0.8448275862068966,
+      "craft-vqa": 0.805,
+      "gorilla-huggingface": 0.9,
+      "gorilla-pytorch": 1.0,
+      "gorilla-tensor": 1.0,
+      "gpt4tools": 1.0,
+      "gta": 1.0,
+      "metatool": 0.9888268156424581,
+      "taskbench-huggingface": 1.0,
+      "taskbench-multimedia": 1.0,
+      "toolalpaca": 0.9680851063829787,
+      "toolbench-sam": 1.0,
+      "toolink": 0.9731543624161074
+    }
+  },
+  "subset_n": {
+    "appbench": 11,
+    "craft-math-algebra": 280,
+    "craft-tabmwp": 174,
+    "craft-vqa": 200,
+    "gorilla-huggingface": 500,
+    "gorilla-pytorch": 43,
+    "gorilla-tensor": 55,
+    "gpt4tools": 32,
+    "gta": 2,
+    "metatool": 179,
+    "taskbench-huggingface": 10,
+    "taskbench-multimedia": 16,
+    "toolalpaca": 94,
+    "toolbench-sam": 191,
+    "toolink": 149
+  },
+  "best": "base + ToolRet-trained-e5-large-v2 + Gorilla train requests (kNN) + usage kNN (gated)",
+  "adaptive": {
+    "base: Tool-Embed-0.6B + ToolRet-trained-bge-base-en-v1.5": {
+      "fixed K": {
+        "coverage": 0.949896694214876,
+        "mean_k": 104.83161157024793,
+        "median_k": 110.0,
+        "p90_k": 115.0
+      },
+      "K per toolset": {
+        "coverage": 0.9550619834710744,
+        "mean_k": 120.22882231404958,
+        "median_k": 62.0,
+        "p90_k": 251.0
+      },
+      "score margin": {
+        "coverage": 0.949896694214876,
+        "mean_k": 95.27944214876032,
+        "median_k": 95.0,
+        "p90_k": 120.0
+      },
+      "score margin per toolset": {
+        "coverage": 0.9540289256198347,
+        "mean_k": 120.77117768595042,
+        "median_k": 62.0,
+        "p90_k": 265.5
+      }
+    },
+    "base + ToolRet-trained-e5-large-v2 + Gorilla train requests (kNN) + usage kNN (gated)": {
+      "fixed K": {
+        "coverage": 0.9509297520661157,
+        "mean_k": 66.1224173553719,
+        "median_k": 69.0,
+        "p90_k": 74.0
+      },
+      "K per toolset": {
+        "coverage": 0.9550619834710744,
+        "mean_k": 74.82799586776859,
+        "median_k": 40.0,
+        "p90_k": 242.0
+      },
+      "score margin": {
+        "coverage": 0.9504132231404959,
+        "mean_k": 79.05320247933884,
+        "median_k": 57.0,
+        "p90_k": 145.0
+      },
+      "score margin per toolset": {
+        "coverage": 0.9550619834710744,
+        "mean_k": 77.70196280991736,
+        "median_k": 37.0,
+        "p90_k": 224.0
+      }
+    },
+    "mean cosine of the base encoders": {
+      "fixed K": {
+        "coverage": 0.9504132231404959,
+        "mean_k": 99.71745867768595,
+        "median_k": 105.0,
+        "p90_k": 111.0
+      },
+      "K per toolset": {
+        "coverage": 0.9545454545454546,
+        "mean_k": 119.16993801652893,
+        "median_k": 62.0,
+        "p90_k": 267.0
+      },
+      "score margin": {
+        "coverage": 0.9504132231404959,
+        "mean_k": 147.161673553719,
+        "median_k": 58.0,
+        "p90_k": 442.5
+      },
+      "score margin per toolset": {
+        "coverage": 0.9540289256198347,
+        "mean_k": 121.00981404958678,
+        "median_k": 43.0,
+        "p90_k": 393.0
+      }
+    }
+  }
+}
