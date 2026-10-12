@@ -64,14 +64,16 @@ The prefilter is no longer the limit; Mercury's ranking is. On these catalogs se
 
 ```
 prefilter (agent's own toolset)                            recall@50   K for 95%
-Tool-Embed + bge-ToolRet, expanded docs (section 7)          0.896        110
+Tool-Embed + bge-ToolRet, expanded docs (section 7)*         0.896        110
   + ToolRet-trained e5-large                                 0.913         95
   + Gorilla's training requests per Hugging Face model       0.949         52
-  + similar past requests of the same toolset                0.952         50
+  + similar past requests of the same toolset                0.951         50
 generic cross-encoder rerankers on top (150-step sample)     no gain, or worse
 ```
 
-The example requests are Gorilla's training split ([APIBench](https://arxiv.org/abs/2305.15334)), which shares no exact request with ToolRet (281 near-duplicates, cosine ≥ 0.95, were dropped); past requests come from other cross-fitting folds, and every fusion weight is chosen on other folds. craft-vqa (0.81) and craft-tabmwp (0.85) remain the weakest datasets. Mercury Decide on the same 50 requests, K = 200 vs K = 50:
+\* ranked within the toolset; section 7's own table gives 0.899.
+
+The example requests are Gorilla's training split ([APIBench](https://arxiv.org/abs/2305.15334)), which shares no exact request with ToolRet (281 near-duplicates, cosine ≥ 0.95, were dropped); past requests come from other cross-fitting folds, and every fusion weight is chosen on other folds. craft-vqa (0.80) and craft-tabmwp (0.84) remain the weakest datasets. Mercury Decide on the same 50 requests, K = 200 vs K = 50 (the K = 50 run used the ranking before a last fix to the past-request gate, which changed 3 of these 50 candidate sets):
 
 ```
                                           K = 200        K = 50

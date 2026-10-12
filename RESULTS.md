@@ -199,13 +199,13 @@ In all three, remaining slots are filled from the rest.
 
 Section 7 needed K = 110 for 95% recall, and Mercury read 200 candidates (about 16k input tokens per call). This section asks what keeps the right tool in the top 50 for 95% of single-tool steps, then reruns Mercury at K = 50 on the same 50 steps. `scripts/run_prefilter_k50.py` measures recall within each step's own toolset, with no API calls. `results/prefilter_k50/report.md`, `results/deploy_mercury_k50/report.md`.
 
-**Where section 7 misses at K = 50.** 195 misses out of 1,936 steps, and 167 of them are in three datasets:
+**Where section 7's prefilter misses at K = 50.** Ranked within the toolset, it misses 202 of 1,936 steps, and 167 of the misses are in three datasets:
 
 | dataset | misses at K = 50 | what the request leaves open |
 |---|---|---|
-| gorilla-huggingface | 92 of 500 | which of 907 Hugging Face models: "identify cats, dogs or birds in images" fits many classifiers, and the label is one CLIP checkpoint |
-| craft-vqa | 50 of 200 | which of 525 generated helper functions, e.g. `identify_attribute_type` vs `identify_attribute_of_associated_object` |
-| craft-tabmwp | 25 of 174 | the table type (stem-and-leaf or frequency table), which is not in the request |
+| gorilla-huggingface | 90 of 500 | which of 907 Hugging Face models: "identify cats, dogs or birds in images" fits many classifiers, and the label is one CLIP checkpoint |
+| craft-vqa | 51 of 200 | which of 525 generated helper functions, e.g. `identify_attribute_type` vs `identify_attribute_of_associated_object` |
+| craft-tabmwp | 26 of 174 | the table type (stem-and-leaf or frequency table), which is not in the request |
 
 **What the literature suggests** (each number checked against the paper):
 
@@ -222,30 +222,30 @@ Section 7 needed K = 110 for 95% recall, and Mercury read 200 candidates (about 
 **Signals tested.**
 - **Gorilla's training requests.** [APIBench](https://arxiv.org/abs/2305.15334) writes 10 requests per API by self-instruct from the API's doc and holds out 10% for evaluation, so its training split has about 9 per Hugging Face model. ToolRet's gorilla-huggingface requests come from that eval split (452 of 500 match it exactly). None of the 8,131 training requests equals a ToolRet request, and the 281 within 0.95 cosine of one were dropped. Each tool is scored by the cosine to the mean embedding of its requests (Tool2Vec), then fused with RRF.
 - **Past requests of the same toolset.** Query-to-query kNN over the other folds of a 5-fold split, with same-text requests left out. The gold tool had been used before for 39% of steps.
-- **Fusion weights.** Every fusion weight and similarity floor is chosen on the other folds, never on the steps being scored.
+- **Fusion weights.** Every fusion weight and similarity floor is chosen on the other folds, never on the steps being scored. When the past-request gate is chosen for a fold, that fold is also left out of the other folds' request history.
 
 | prefilter (toolset scope, 1,936 single-tool steps) | R@20 | R@50 | R@100 | R@200 | K for 95% | ΔR@50 [95% CI] |
 |---|---|---|---|---|---|---|
-| section 7: Tool-Embed-0.6B + ToolRet-trained bge-base (dense RRF), expanded docs | 0.794 | 0.896 | 0.948 | 0.973 | 110 | – |
+| section 7 prefilter (Tool-Embed-0.6B + ToolRet-trained bge-base, dense RRF, expanded docs), ranked within the toolset | 0.794 | 0.896 | 0.948 | 0.973 | 110 | – |
 | + ToolRet-trained bge-large | 0.796 | 0.901 | 0.956 | 0.977 | 89 | +0.006 [−0.002, +0.014] |
 | + ToolRet-trained e5-large | 0.802 | 0.913 | 0.952 | 0.978 | 95 | +0.018 [+0.010, +0.026] |
 | + past requests, plain RRF | 0.683 | 0.863 | 0.925 | 0.962 | 159 | −0.033 [−0.046, −0.021] |
-| + past requests, weight and similarity floor from other folds | 0.824 | 0.912 | 0.947 | 0.974 | 106 | +0.016 [+0.009, +0.024] |
+| + past requests, weight and similarity floor from other folds | 0.815 | 0.909 | 0.949 | 0.973 | 106 | +0.013 [+0.007, +0.020] |
 | + Gorilla training requests | 0.841 | 0.933 | 0.973 | 0.988 | 61 | +0.037 [+0.028, +0.046] |
 | + e5-large + Gorilla training requests | 0.848 | 0.949 | 0.974 | 0.990 | 52 | +0.054 [+0.043, +0.065] |
-| **+ e5-large + Gorilla training requests + past requests** | **0.871** | **0.952** | **0.974** | **0.990** | **50** | **+0.056 [+0.046, +0.068]** |
+| **+ e5-large + Gorilla training requests + past requests** | **0.864** | **0.951** | **0.974** | **0.990** | **50** | **+0.055 [+0.044, +0.067]** |
 
-- **The target is met.** 95% single-tool recall now needs K = 50 instead of 110. With K fixed on the other folds, coverage is 0.951 at K = 49 on average.
-- **Each signal fixes one dataset.** Recall@50 by dataset, section 7 → now:
-  - gorilla-huggingface 0.820 → 0.972 (the example requests);
-  - toolbench-sam 0.901 → 0.995 (past requests);
-  - craft-vqa 0.745 → 0.805 (e5-large);
-  - metatool 0.972 → 0.989.
-- **Example requests beat descriptions.** On gorilla-huggingface, scoring tools by their example requests alone gives R@50 = 0.974, against 0.834 for the three description encoders.
-- **Past requests need a gate.** Plain RRF lets a loosely similar past request push its tool above the right one, so recall falls. With a similarity floor (0.8) and half weight, it helps.
+- **The target is met.** 95% single-tool recall now needs K = 50 instead of 110. With K fixed on the other folds, coverage is 0.951 at K = 49.6 on average. (Section 7's table gives 0.899 at K = 50 for the same prefilter; there, ranks run over the whole catalog with the toolset first.)
+- **Where the gain comes from.** Recall@50 by dataset, section 7 prefilter → final:
+  - gorilla-huggingface 0.820 → 0.972: the example requests (e5-large alone reaches 0.834);
+  - toolbench-sam 0.901 → 0.995: e5-large to 0.963, then past requests;
+  - craft-vqa 0.745 → 0.800 and metatool 0.972 → 0.989: e5-large;
+  - craft-tabmwp 0.851 → 0.839: slightly worse.
+- **Example requests beat descriptions.** On gorilla-huggingface, scoring tools by their example requests alone gives R@50 = 0.974, against 0.834 for the three description encoders (`Gorilla train requests only` in the report).
+- **Past requests need a gate.** Added with plain RRF, they lower recall (R@20 0.794 → 0.683). With a similarity floor of 0.7–0.8 and a weight of 0.25–0.5, both chosen on the other folds, they help.
 
 **What did not help.**
-- **Cross-encoder rerankers make it worse,** as in ToolRet. This is on a stratified sample of 150 steps, reordering the top 100 of the best prefilter (R@50 0.947 on this sample):
+- **Small cross-encoder rerankers do not help here.** Reranking alone lowers recall, and RRF with the prefilter changes nothing significant. In ToolRet most generic rerankers also lowered N@10; bge-reranker-v2-gemma (2B parameters) raised it from 33.83 to 35.51. This is on a stratified sample of 150 steps, reordering the top 100 of the best prefilter (R@50 0.947 on this sample):
 
   | reranker | rerank alone: R@50, Δ [95% CI] | RRF with the prefilter: R@50, Δ [95% CI] |
   |---|---|---|
@@ -253,15 +253,15 @@ Section 7 needed K = 110 for 95% recall, and Mercury read 200 candidates (about 
   | bge-reranker-base | 0.880, −0.067 [−0.113, −0.020] | 0.953, +0.007 [−0.013, +0.033] |
 
   On this CPU the base-size reranker scores about 7 request–tool pairs per second.
-- **Adaptive K saves little at the same 95%.** A separate K per toolset gives a median of 38 tools, but the mean is 60, because craft-tabmwp needs K = 110 and craft-vqa more than 200 (gorilla-huggingface now needs 38). A per-request score margin calibrated per toolset behaves the same way (median 34, mean 62). A fixed K = 50 is simpler and as small on average.
-- **CRAFT cannot use its own data.** All 174 ToolRet craft-tabmwp requests are exactly the training problems CRAFT abstracted its tools from, so using that data would leak the label. craft-vqa (0.805) and craft-tabmwp (0.845) stay the weakest datasets.
+- **Adaptive K saves little at the same 95%.** A separate K per toolset gives a median of 38 tools, but the mean is 60, because craft-tabmwp needs about K = 110 and craft-vqa more than 200 (gorilla-huggingface now needs about 38). A per-request score margin calibrated per toolset behaves the same way (median 36, mean 62). A fixed K = 50 is simpler and as small on average.
+- **CRAFT cannot use its own data.** All 174 ToolRet craft-tabmwp requests are exactly the training problems CRAFT abstracted its tools from, so using that data would leak the label. craft-vqa (0.800) and craft-tabmwp (0.839) stay the weakest datasets.
 
 **Caveats.**
 - **Most of the gain needs example requests per tool:** logged requests, or synthetic ones as in Re-Invoke. Without them, the best is the e5-large ensemble, at 0.913.
-- **Weights were chosen on the same benchmark.** They were picked on other folds, so the held-out estimate is honest, but the method choice itself was made on this benchmark.
+- **Methods were chosen on the same benchmark.** Weights were picked on other folds, so each step's estimate is held out, but which signals to combine was decided by looking at this benchmark.
 - **Code + customized only.** The web catalog was not run.
 
-**Mercury Decide at K = 50.** `scripts/run_deploy_mercury.py --candidates results/prefilter_k50/candidates.npz --k 50` sends the same 50 steps as section 7, now with the top 50 of the new prefilter. Conformal sets are leave-one-out, as before.
+**Mercury Decide at K = 50.** `scripts/run_deploy_mercury.py --candidates results/prefilter_k50/candidates.npz --k 50` sends the same 50 steps as section 7, now with the top 50 of the new prefilter. Conformal sets are leave-one-out, as before. This run used the ranking before the gate fix above, in which the held-out fold's requests could still influence its past-request gate. In the final ranking 13 of these 50 steps have a different candidate order and 3 a different candidate set; recall on the sample is 0.94 in both.
 
 | same 50 single-tool steps | K = 200 (section 7) | K = 50 (this section) |
 |---|---|---|

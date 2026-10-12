@@ -23,26 +23,26 @@
         "tau": 0.7
       },
       "3": {
-        "w": 0.5,
+        "w": 0.25,
         "tau": 0.7
       },
       "4": {
-        "w": 0.5,
+        "w": 0.25,
         "tau": 0.7
       }
     },
     "base + ToolRet-trained-e5-large-v2": {
       "0": {
-        "w": 1.0,
-        "tau": 0.8
-      },
-      "1": {
         "w": 0.5,
         "tau": 0.8
       },
-      "2": {
-        "w": 1.0,
+      "1": {
+        "w": 0.25,
         "tau": 0.8
+      },
+      "2": {
+        "w": 0.5,
+        "tau": 0.7
       },
       "3": {
         "w": 1.0,
@@ -89,7 +89,7 @@
         "tau": 0.7
       },
       "3": {
-        "w": 0.5,
+        "w": 0.25,
         "tau": 0.7
       },
       "4": {
@@ -125,12 +125,12 @@
         "tau": 0.8
       },
       "1": {
-        "w": 0.5,
+        "w": 0.25,
         "tau": 0.8
       },
       "2": {
-        "w": 0.5,
-        "tau": 0.8
+        "w": 0.25,
+        "tau": 0.7
       },
       "3": {
         "w": 0.5,
@@ -263,17 +263,17 @@
       }
     },
     "usage kNN only": {
-      "R@10": 0.35330578512396693,
-      "R@20": 0.39669421487603307,
-      "R@30": 0.4018595041322314,
-      "R@50": 0.422004132231405,
-      "R@100": 0.4705578512396694,
-      "R@200": 0.6864669421487604,
-      "K for target": 335,
+      "R@10": 0.3522727272727273,
+      "R@20": 0.375,
+      "R@30": 0.37964876033057854,
+      "R@50": 0.3982438016528926,
+      "R@100": 0.40960743801652894,
+      "R@200": 0.5402892561983471,
+      "K for target": 907,
       "dR@50": {
-        "mean_diff": -0.47365702479338845,
-        "ci_low": -0.4969137396694215,
-        "ci_high": -0.4498837809917356,
+        "mean_diff": -0.49741735537190085,
+        "ci_low": -0.5211776859504132,
+        "ci_high": -0.47262396694214875,
         "p": 0.0005
       }
     },
@@ -293,17 +293,17 @@
       }
     },
     "base: Tool-Embed-0.6B + ToolRet-trained-bge-base-en-v1.5 + usage kNN (gated)": {
-      "R@10": 0.699896694214876,
-      "R@20": 0.8238636363636364,
-      "R@30": 0.868801652892562,
-      "R@50": 0.9116735537190083,
-      "R@100": 0.9473140495867769,
-      "R@200": 0.9736570247933884,
+      "R@10": 0.7091942148760331,
+      "R@20": 0.8145661157024794,
+      "R@30": 0.8657024793388429,
+      "R@50": 0.9090909090909091,
+      "R@100": 0.9493801652892562,
+      "R@200": 0.9731404958677686,
       "K for target": 106,
       "dR@50": {
-        "mean_diff": 0.016012396694214875,
-        "ci_low": 0.00878099173553719,
-        "ci_high": 0.023760330578512397,
+        "mean_diff": 0.013429752066115703,
+        "ci_low": 0.006714876033057851,
+        "ci_high": 0.020144628099173553,
         "p": 0.0005
       }
     },
@@ -323,17 +323,32 @@
       }
     },
     "base + ToolRet-trained-e5-large-v2 + usage kNN (gated)": {
-      "R@10": 0.7458677685950413,
-      "R@20": 0.8295454545454546,
-      "R@30": 0.8739669421487604,
-      "R@50": 0.9183884297520661,
-      "R@100": 0.9540289256198347,
-      "R@200": 0.9793388429752066,
-      "K for target": 92,
+      "R@10": 0.7417355371900827,
+      "R@20": 0.8264462809917356,
+      "R@30": 0.8708677685950413,
+      "R@50": 0.9163223140495868,
+      "R@100": 0.9535123966942148,
+      "R@200": 0.9788223140495868,
+      "K for target": 93,
       "dR@50": {
-        "mean_diff": 0.022727272727272728,
-        "ci_low": 0.014462809917355372,
-        "ci_high": 0.031508264462809916,
+        "mean_diff": 0.02066115702479339,
+        "ci_low": 0.011880165289256199,
+        "ci_high": 0.029958677685950414,
+        "p": 0.0005
+      }
+    },
+    "Gorilla train requests only (centroid)": {
+      "R@10": 0.17768595041322313,
+      "R@20": 0.21952479338842976,
+      "R@30": 0.24173553719008264,
+      "R@50": 0.31043388429752067,
+      "R@100": 0.3434917355371901,
+      "R@200": 0.625,
+      "K for target": 1804,
+      "dR@50": {
+        "mean_diff": -0.5852272727272727,
+        "ci_low": -0.6120867768595041,
+        "ci_high": -0.5599173553719008,
         "p": 0.0005
       }
     },
@@ -383,9 +398,9 @@
       }
     },
     "base: Tool-Embed-0.6B + ToolRet-trained-bge-base-en-v1.5 + Gorilla train requests (centroid, weight chosen on other folds) + usage kNN (gated)": {
-      "R@10": 0.7510330578512396,
-      "R@20": 0.8708677685950413,
-      "R@30": 0.9101239669421488,
+      "R@10": 0.7520661157024794,
+      "R@20": 0.8677685950413223,
+      "R@30": 0.9075413223140496,
       "R@50": 0.943698347107438,
       "R@100": 0.9731404958677686,
       "R@200": 0.9881198347107438,
@@ -443,17 +458,17 @@
       }
     },
     "base + ToolRet-trained-e5-large-v2 + Gorilla train requests (centroid, weight chosen on other folds) + usage kNN (gated)": {
-      "R@10": 0.7727272727272727,
-      "R@20": 0.8708677685950413,
-      "R@30": 0.9163223140495868,
-      "R@50": 0.9519628099173554,
+      "R@10": 0.7691115702479339,
+      "R@20": 0.8636363636363636,
+      "R@30": 0.9137396694214877,
+      "R@50": 0.9509297520661157,
       "R@100": 0.9741735537190083,
       "R@200": 0.9896694214876033,
       "K for target": 50,
       "dR@50": {
-        "mean_diff": 0.05630165289256198,
-        "ci_low": 0.04597107438016529,
-        "ci_high": 0.06766528925619834,
+        "mean_diff": 0.05526859504132232,
+        "ci_low": 0.04442148760330578,
+        "ci_high": 0.06663223140495868,
         "p": 0.0005
       }
     }
@@ -602,14 +617,14 @@
       "craft-vqa": 0.0,
       "gorilla-huggingface": 0.32,
       "gorilla-pytorch": 1.0,
-      "gorilla-tensor": 1.0,
+      "gorilla-tensor": 0.7818181818181819,
       "gpt4tools": 1.0,
       "gta": 1.0,
       "metatool": 0.5977653631284916,
       "taskbench-huggingface": 1.0,
       "taskbench-multimedia": 1.0,
-      "toolalpaca": 0.8617021276595744,
-      "toolbench-sam": 1.0,
+      "toolalpaca": 0.5425531914893617,
+      "toolbench-sam": 0.9790575916230366,
       "toolink": 0.7315436241610739
     },
     "base: Tool-Embed-0.6B + ToolRet-trained-bge-base-en-v1.5 + usage kNN (plain RRF)": {
@@ -634,7 +649,7 @@
       "craft-math-algebra": 0.9892857142857143,
       "craft-tabmwp": 0.8505747126436781,
       "craft-vqa": 0.74,
-      "gorilla-huggingface": 0.84,
+      "gorilla-huggingface": 0.832,
       "gorilla-pytorch": 1.0,
       "gorilla-tensor": 1.0,
       "gpt4tools": 1.0,
@@ -643,7 +658,7 @@
       "taskbench-huggingface": 1.0,
       "taskbench-multimedia": 1.0,
       "toolalpaca": 0.9787234042553191,
-      "toolbench-sam": 1.0,
+      "toolbench-sam": 0.9947643979057592,
       "toolink": 0.9798657718120806
     },
     "base + ToolRet-trained-e5-large-v2 + usage kNN (plain RRF)": {
@@ -666,9 +681,9 @@
     "base + ToolRet-trained-e5-large-v2 + usage kNN (gated)": {
       "appbench": 1.0,
       "craft-math-algebra": 0.9892857142857143,
-      "craft-tabmwp": 0.8448275862068966,
-      "craft-vqa": 0.805,
-      "gorilla-huggingface": 0.84,
+      "craft-tabmwp": 0.8390804597701149,
+      "craft-vqa": 0.8,
+      "gorilla-huggingface": 0.836,
       "gorilla-pytorch": 1.0,
       "gorilla-tensor": 1.0,
       "gpt4tools": 1.0,
@@ -679,6 +694,23 @@
       "toolalpaca": 0.9680851063829787,
       "toolbench-sam": 1.0,
       "toolink": 0.9731543624161074
+    },
+    "Gorilla train requests only (centroid)": {
+      "appbench": 1.0,
+      "craft-math-algebra": 0.0,
+      "craft-tabmwp": 0.0,
+      "craft-vqa": 0.0,
+      "gorilla-huggingface": 0.974,
+      "gorilla-pytorch": 1.0,
+      "gorilla-tensor": 0.0,
+      "gpt4tools": 1.0,
+      "gta": 1.0,
+      "metatool": 0.0,
+      "taskbench-huggingface": 1.0,
+      "taskbench-multimedia": 1.0,
+      "toolalpaca": 0.0,
+      "toolbench-sam": 0.0,
+      "toolink": 0.0
     },
     "base: Tool-Embed-0.6B + ToolRet-trained-bge-base-en-v1.5 + Gorilla train requests (kNN)": {
       "appbench": 1.0,
@@ -802,8 +834,8 @@
     "base + ToolRet-trained-e5-large-v2 + Gorilla train requests (centroid, weight chosen on other folds) + usage kNN (gated)": {
       "appbench": 1.0,
       "craft-math-algebra": 0.9892857142857143,
-      "craft-tabmwp": 0.8448275862068966,
-      "craft-vqa": 0.805,
+      "craft-tabmwp": 0.8390804597701149,
+      "craft-vqa": 0.8,
       "gorilla-huggingface": 0.972,
       "gorilla-pytorch": 1.0,
       "gorilla-tensor": 1.0,
@@ -865,27 +897,27 @@
     "base + ToolRet-trained-e5-large-v2 + Gorilla train requests (centroid, weight chosen on other folds) + usage kNN (gated)": {
       "fixed K": {
         "coverage": 0.9514462809917356,
-        "mean_k": 48.99276859504132,
-        "median_k": 50.0,
-        "p90_k": 50.0
+        "mean_k": 49.552169421487605,
+        "median_k": 51.0,
+        "p90_k": 51.0
       },
       "K per toolset": {
-        "coverage": 0.9555785123966942,
-        "mean_k": 60.139462809917354,
+        "coverage": 0.9550619834710744,
+        "mean_k": 60.392561983471076,
         "median_k": 38.0,
         "p90_k": 242.0
       },
       "score margin": {
-        "coverage": 0.9524793388429752,
-        "mean_k": 206.19369834710744,
-        "median_k": 193.5,
-        "p90_k": 525.0
+        "coverage": 0.9519628099173554,
+        "mean_k": 193.83419421487602,
+        "median_k": 184.0,
+        "p90_k": 467.0
       },
       "score margin per toolset": {
         "coverage": 0.9540289256198347,
-        "mean_k": 61.50309917355372,
-        "median_k": 34.0,
-        "p90_k": 152.5
+        "mean_k": 62.25723140495868,
+        "median_k": 36.0,
+        "p90_k": 153.5
       }
     },
     "mean cosine of the base encoders": {
@@ -921,9 +953,9 @@
     "rows": {
       "base + ToolRet-trained-e5-large-v2 + Gorilla train requests (centroid, weight chosen on other folds) + usage kNN (gated)": {
         "first stage": {
-          "R@10": 0.8266666666666667,
+          "R@10": 0.82,
           "R@20": 0.9,
-          "R@30": 0.9266666666666666,
+          "R@30": 0.92,
           "R@50": 0.9466666666666667,
           "R@100": 0.98,
           "R@200": 0.9933333333333333,
@@ -945,9 +977,9 @@
           }
         },
         "ms-marco-MiniLM-L6-v2 RRF with first stage": {
-          "R@10": 0.7666666666666667,
+          "R@10": 0.76,
           "R@20": 0.8733333333333333,
-          "R@30": 0.8933333333333333,
+          "R@30": 0.8866666666666667,
           "R@50": 0.94,
           "R@100": 0.98,
           "R@200": 0.9933333333333333,

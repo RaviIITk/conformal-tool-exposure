@@ -39,7 +39,7 @@ Leave-one-out: each step's threshold is calibrated on the other n − 1 steps. `
 
 ## Stage-2 alternatives on the same candidates (exact match, leave-one-out)
 
-`retrieval` = softmax over the candidates' mean cosine, temperature fit on the other steps.
+`retrieval` = softmax over the candidates' prefilter scores (the saved ranking's fused score), temperature fit on the other steps.
 
 | Stage-2 score | hit@1 | hit@5 | hit@10 | hit@20 | coverage α=0.05 | size α=0.05 | coverage α=0.1 | size α=0.1 | coverage α=0.2 | size α=0.2 |
 |---|---|---|---|---|---|---|---|---|---|---|

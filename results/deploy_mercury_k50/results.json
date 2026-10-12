@@ -9,6 +9,7 @@
   "k": 50,
   "prefilter": "`base + ToolRet-trained-e5-large-v2 + Gorilla train requests (centroid, weight chosen on other folds) + usage kNN (gated)` (scripts/run_prefilter_k50.py)",
   "k_fixed": true,
+  "retrieval_score": "prefilter scores (the saved ranking's fused score)",
   "target": 0.95,
   "margin": 0.02,
   "recall_other_steps": {
