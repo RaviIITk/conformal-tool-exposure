@@ -62,8 +62,8 @@ def rrf(x: np.ndarray) -> np.ndarray:
 
 
 def gold_rank(s: np.ndarray, g: int) -> int:
-    """0-based rank of the gold tool: the gold tool is in the top K iff this is < K."""
-    return int((s > s[g]).sum())
+    """0-based rank of the gold tool, ties counted against it: the gold tool is in the top K iff this is < K."""
+    return int((s >= s[g]).sum()) - 1
 
 
 def conformal_q(scores: np.ndarray, target: float) -> float:
@@ -189,10 +189,12 @@ def finetune_sims(setup: Setup, name: str, q_all: np.ndarray, tool_emb: dict, ca
     return sims
 
 
-def usage_scores(setup: Setup, q: list[np.ndarray], q_all: list[np.ndarray]) -> list[np.ndarray]:
+def usage_scores(setup: Setup, q: list[np.ndarray], q_all: list[np.ndarray],
+                 exclude_fold: int | None = None) -> list[np.ndarray]:
     """Query-to-query kNN: a tool's score is the best similarity between this request and a past
     request (other folds, same toolset, different text) whose gold tools include it; tools never
-    used before get -inf."""
+    used before get -inf. `exclude_fold` also leaves that fold out of every step's history (used to
+    choose the gate for that fold without its labels)."""
     norm = lambda t: " ".join(t.lower().split())
     by_ts = defaultdict(list)
     for j, s in enumerate(setup.all_steps):
@@ -202,7 +204,8 @@ def usage_scores(setup: Setup, q: list[np.ndarray], q_all: list[np.ndarray]) -> 
         cat = setup.catalogs[s.category]
         local = {int(t): k for k, t in enumerate(cand)}
         hist = [j for j in by_ts[SUBSET_TOOLSET[s.subset]]
-                if setup.all_fold[j] != setup.fold[i] and norm(setup.all_steps[j].situation) != norm(s.situation)]
+                if setup.all_fold[j] not in (setup.fold[i], exclude_fold)
+                and norm(setup.all_steps[j].situation) != norm(s.situation)]
         score = np.full(len(cand), -np.inf)
         if hist:
             sim = np.mean([qa[hist] @ qe[i] for qe, qa in zip(q, q_all)], 0)
@@ -294,19 +297,21 @@ def tool_query_scores(setup: Setup, examples: dict[tuple[str, int], list[str]], 
 
 
 def gated_usage(setup: Setup, base: list[np.ndarray], usage: list[np.ndarray], k: int = 50,
-                weights=(0.25, 0.5, 1.0), taus=(-np.inf, 0.5, 0.6, 0.7, 0.8, 0.9)):
-    """base + w * RRF(usage kNN), counting only past requests at least tau similar. For each fold,
-    (w, tau) maximise recall@k on the other folds, so the held-out fold never picks its own setting."""
-    fused = lambda i, w, t: base[i] + w * rrf_partial(np.where(usage[i] >= t, usage[i], -np.inf))
-    grid = {(w, t): np.array([gold_rank(fused(i, w, t), g) for i, g in enumerate(setup.gold)])
-            for w in weights for t in taus}
+                weights=(0.25, 0.5, 1.0), taus=(-np.inf, 0.5, 0.6, 0.7, 0.8, 0.9),
+                usage_without: dict | None = None):
+    """base + w * RRF(usage), counting only matches at least tau similar. For each held-out fold f,
+    (w, tau) maximise recall@k on the other folds; `usage_without[f]` gives their usage scores with
+    fold f left out of the history, so fold f's labels never influence its own setting."""
+    fused = lambda b, u, w, t: b + w * rrf_partial(np.where(u >= t, u, -np.inf))
     out, chosen = [None] * len(base), {}
     for f in np.unique(setup.fold):
-        cal = setup.fold != f
-        w, t = max(grid, key=lambda key: np.mean(grid[key][cal] < k))
+        cal = np.flatnonzero(setup.fold != f)
+        u_cal = usage_without[f] if usage_without else usage
+        hit = lambda wt: np.mean([gold_rank(fused(base[i], u_cal[i], *wt), setup.gold[i]) < k for i in cal])
+        w, t = max(((w, t) for w in weights for t in taus), key=hit)
         chosen[int(f)] = {"w": w, "tau": float(t)}
-        for i in np.flatnonzero(~cal):
-            out[i] = fused(i, w, t)
+        for i in np.flatnonzero(setup.fold == f):
+            out[i] = fused(base[i], usage[i], w, t)
     return out, chosen
 
 
@@ -437,14 +442,17 @@ def main() -> None:
         if swapped != base_names:
             methods["base with " + short(f"ft:{t}")] = ensemble(swapped)
 
-    usage = usage_scores(setup, [q[e] for e in base_names], [q_all[e] for e in base_names])
+    qe, qa = [q[e] for e in base_names], [q_all[e] for e in base_names]
+    usage = usage_scores(setup, qe, qa)
+    usage_without = {int(f): usage_scores(setup, qe, qa, exclude_fold=int(f)) for f in np.unique(setup.fold)}
     has_hist = np.array([np.isfinite(u[g]) for u, g in zip(usage, setup.gold)])
     methods["usage kNN only"] = [np.where(np.isfinite(u), u, -10.0) for u in usage]
     best_dense = max((k for k in methods if k.startswith("base")), key=lambda k: r50(methods[k]))
     gates = {}
     for key in dict.fromkeys([base_key, best_dense]):
         methods[f"{key} + usage kNN (plain RRF)"] = [b + rrf_partial(u) for b, u in zip(methods[key], usage)]
-        methods[f"{key} + usage kNN (gated)"], gates[key] = gated_usage(setup, methods[key], usage)
+        methods[f"{key} + usage kNN (gated)"], gates[key] = gated_usage(setup, methods[key], usage,
+                                                                         usage_without=usage_without)
 
     examples_info = None
     if args.tool_examples == "apibench":
@@ -459,7 +467,7 @@ def main() -> None:
             methods[tuned], gates[tuned] = gated_usage(setup, methods[key], cen, weights=EXAMPLE_WEIGHTS,
                                                        taus=(-np.inf,))
             methods[f"{tuned} + usage kNN (gated)"], gates[f"{tuned} + usage"] = gated_usage(
-                setup, methods[tuned], usage)
+                setup, methods[tuned], usage, usage_without=usage_without)
 
     ranks = {m: np.array([gold_rank(s, g) for s, g in zip(v, setup.gold)]) for m, v in methods.items()}
     base_r = ranks[base_key]
@@ -471,7 +479,8 @@ def main() -> None:
     sub = np.array([s.subset for s in setup.steps])
     res["by_subset"] = {m: {x: float(np.mean(ranks[m][sub == x] < 50)) for x in subsets} for m in ranks}
     res["subset_n"] = {x: int((sub == x).sum()) for x in subsets}
-    best = max(ranks, key=lambda m: np.mean(ranks[m] < 50))
+    # Best full prefilter (rows scoring only some toolsets, e.g. "... only", are diagnostics).
+    best = max((m for m in ranks if m.startswith("base")), key=lambda m: np.mean(ranks[m] < 50))
     res["best"] = best
     # The best ranking's top candidates per step, for Stage 2 (run_deploy_mercury.py --candidates).
     depth = 200

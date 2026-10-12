@@ -216,11 +216,11 @@ Section 7 needed K = 110 for 95% recall, and Mercury read 200 candidates (about 
 | Generic cross-encoder rerankers ([ToolRet](https://arxiv.org/abs/2503.01763), reranking NV-Embed-v1) | average N@10 33.83 for the retriever; bge-reranker-v2-m3 29.24, mxbai-rerank-large-v1 24.84, jina-reranker-v2 33.60, bge-reranker-v2-gemma 35.51 (their Table 4) | yes: MiniLM-L6 and bge-reranker-base |
 | Tool-trained rerankers: Tool-Rank-4B ([Tool-DE](https://arxiv.org/abs/2510.22670)); trained cross-encoder ([ToolRerank](https://arxiv.org/abs/2403.06551)) | N@10 52.23 → 56.44 over Tool-Embed-4B (Tool-DE Table 3); ToolBench Recall@5 75.2 → 80.3 over DPR (ToolRerank Table 3) | no: 4B parameters, or in-domain training, on 4 CPU cores |
 | More tool-trained embedders: ToolRet-trained bge-large and e5-large | average N@10 32.95 and 30.18, against 23.03 and 20.78 untrained (ToolRet Table 14) | yes |
-| In-domain contrastive fine-tuning | ToolRet-train lifts bge-base from 22.06 to 29.35 average N@10 (ToolRet Table 14) | started, not finished: one of five cross-fitted folds took over 55 minutes on this CPU |
-| Adaptive set size from calibrated score thresholds ([score refinement for conformal retrieval](https://arxiv.org/abs/2410.02914)) | FIQA, α = 0.05: 259 → 190.5 documents at the same 0.92 coverage (their Table 2) | yes: per toolset and per request |
+| Contrastive fine-tuning on tool-retrieval data | ToolRet-train (built from ToolACE, ToolBench and APIGen) lifts bge-base from 22.06 to 29.35 average N@10 (ToolRet Table 14); that model is already in the section 7 prefilter, and no cited paper measures further fine-tuning on the target catalog | in-domain, cross-fitted: started, not finished (one of five folds took over 55 minutes on this CPU) |
+| Adaptive set size from calibrated thresholds on refined scores ([score refinement for conformal retrieval](https://arxiv.org/abs/2410.02914)) | FIQA, α = 0.05: fixed top-K needs 259 documents, refined-score thresholds 190.5, at the same 0.92 coverage; thresholds on raw scores need 846 (their Table 2) | yes, on raw scores: per toolset and per request |
 
 **Signals tested.**
-- **Gorilla's training requests.** [APIBench](https://arxiv.org/abs/2305.15334) has about 9 requests per Hugging Face model, written by self-instruct from the model's doc. ToolRet's gorilla-huggingface requests come from APIBench's eval split (452 of 500 match it exactly). None of the 8,131 training requests equals a ToolRet request, and the 281 within 0.95 cosine of one were dropped. Each tool is scored by the cosine to the mean embedding of its requests (Tool2Vec), then fused with RRF.
+- **Gorilla's training requests.** [APIBench](https://arxiv.org/abs/2305.15334) writes 10 requests per API by self-instruct from the API's doc and holds out 10% for evaluation, so its training split has about 9 per Hugging Face model. ToolRet's gorilla-huggingface requests come from that eval split (452 of 500 match it exactly). None of the 8,131 training requests equals a ToolRet request, and the 281 within 0.95 cosine of one were dropped. Each tool is scored by the cosine to the mean embedding of its requests (Tool2Vec), then fused with RRF.
 - **Past requests of the same toolset.** Query-to-query kNN over the other folds of a 5-fold split, with same-text requests left out. The gold tool had been used before for 39% of steps.
 - **Fusion weights.** Every fusion weight and similarity floor is chosen on the other folds, never on the steps being scored.
 
@@ -273,11 +273,11 @@ Section 7 needed K = 110 for 95% recall, and Mercury read 200 candidates (about 
 | input tokens per call, median latency | about 16k, 1.8 s | **about 4.1k, 1.0 s** |
 | prefilter scores alone (softmax, no Mercury): top-1, α = 0.10 set | 0.38, 85 tools | 0.44, 39 tools |
 
-- **Same coverage, smaller sets, a quarter of the cost.** At α = 0.10 and 0.20 the K = 50 sets reach the same coverage with about half and a third of the tools. Each call reads 74% fewer tokens.
+- **Same coverage, smaller sets on average, a quarter of the cost.** At α = 0.10 and 0.20 the K = 50 sets reach the same coverage with about half and a third of the tools on average. At α = 0.10 the median set grows, though, from 28.5 to 39.5 tools: the mean falls because no set can exceed 50. Each call reads 74% fewer tokens.
 - **α = 0.05 is out of reach on this sample.** The prefilter misses 3 of the 50 steps, so coverage stops at 0.94; on the held-out steps it is 0.952.
 - **Mercury's accuracy on the steps it sees is unchanged.** Top-1 is 0.47 in both runs when the right tool is among the candidates. Top-10 and top-20 rise by 3 steps each with fewer distractors.
 - **The new prefilter alone now ranks as well as Mercury at top-1** (0.44 for both on these 50 steps), and its α = 0.10 set is 39 tools.
-- **Confidence is low.** At n = 50 a difference of 0.02 is one step; none of the K = 50 vs K = 200 differences is significant.
+- **Confidence is low.** At n = 50 a difference of 0.02 is one step. None of the top-k or coverage differences (3 steps or fewer) is significant; the set-size differences were not tested.
 
 ## 9. Stress tests (RQ3/RQ4), hybrid score source, ~1,080 single-tool test steps
 
