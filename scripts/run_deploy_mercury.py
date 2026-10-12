@@ -3,13 +3,16 @@
 1. Steps: single-tool ToolRet steps of --categories. A stratified sample of --n steps goes to
    Mercury; every other step chooses K (the smallest K whose recall reaches --target + --margin).
 2. Prefilter: the toolset of the step's own dataset (the tools its agent is connected to) is
-   ranked by an RRF ensemble of --encoder over expanded tool docs; the top K go to Stage 2.
+   ranked by an RRF ensemble of --encoder over expanded tool docs, or by the best ranking that
+   scripts/run_prefilter_k50.py saved (--candidates); the top K go to Stage 2.
 3. Mercury Decide (Mode A: one choice over the K candidates) scores each sampled step.
 4. Conformal sets (LAC), leave-one-out: each step's threshold is calibrated on all other
    sampled steps (n - 1 points), so alpha down to about 1/n gives a finite threshold.
    A prefilter miss counts as a failure (score +inf), so coverage is end to end.
 
   python scripts/run_deploy_mercury.py --n 50
+  python scripts/run_deploy_mercury.py --candidates results/prefilter_k50/candidates.npz --k 50 \
+      --k-grid 50,100,150,200 --out results/deploy_mercury_k50
 """
 
 from __future__ import annotations
@@ -61,7 +64,8 @@ def loo_lac(probs: np.ndarray, gold_mask: np.ndarray, n_gold: np.ndarray, alpha:
 
 
 def retrieval_probs(pool, fit_pool) -> np.ndarray:
-    """Softmax over the candidates' mean cosine, with the temperature fit (NLL) on other steps."""
+    """Softmax over the candidates' prefilter scores (`pool.dense`: mean cosine, or the saved ranking's
+    fused score), with the temperature fit (NLL) on other steps."""
     def soft(x, t):
         z = x / t - (x / t).max(1, keepdims=True)
         return np.exp(z) / np.exp(z).sum(1, keepdims=True)
@@ -150,6 +154,7 @@ def main() -> None:
     n, ng = len(pool), pool.n_gold
     res = {"categories": cats, "encoder": args.encoder, "use_bm25": args.use_bm25, "n": n, "k": k,
            "prefilter": prefilter_name, "k_fixed": args.k is not None,
+           "retrieval_score": "prefilter scores (the saved ranking's fused score)" if args.candidates else "mean cosine",
            "target": args.target, "margin": args.margin, "recall_other_steps": recall_others,
            "n_other_steps": len(others), "prefilter_recall": float(pool.hit_all.mean()),
            "prefilter_recall_duplicate": float(dup.any(1).mean()), "usage": usage,
@@ -228,7 +233,8 @@ def write_report(res: dict, out: Path) -> None:
         "",
         "## Stage-2 alternatives on the same candidates (exact match, leave-one-out)",
         "",
-        "`retrieval` = softmax over the candidates' mean cosine, temperature fit on the other steps.",
+        f"`retrieval` = softmax over the candidates' {res.get('retrieval_score', 'mean cosine')}, temperature fit "
+        "on the other steps.",
         "",
         md_table(["Stage-2 score", "hit@1", "hit@5", "hit@10", "hit@20", "coverage α=0.05", "size α=0.05",
                   "coverage α=0.1", "size α=0.1", "coverage α=0.2", "size α=0.2"],

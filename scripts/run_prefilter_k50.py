@@ -11,6 +11,10 @@ single-tool steps:
     used it (query-to-query kNN, as in Tool2Vec, arXiv 2409.02141), fused with RRF. Past
     requests come from the other cross-fitting folds of the same toolset; requests with the
     same text are left out, so a step never retrieves itself
+  - example requests per tool (`--tool-examples apibench`): Gorilla's training instructions for the
+    gorilla-huggingface models (arXiv 2305.15334; ToolRet uses its eval split), scored per tool as
+    in Tool2Vec and fused with RRF at a weight chosen on the other folds
+  - in-domain contrastive fine-tuning, cross-fitted (`--finetune`; slow on CPU)
   - cross-encoder reranking of the top `--rerank-depth` candidates (retrieve, then rerank) on a
     stratified sample of `--rerank-n` steps
   - adaptive K: instead of one K for everyone, a candidate count per toolset (Mondrian
@@ -21,7 +25,7 @@ Recall@K = the gold tool is among the top K of its own toolset. Ranks are taken 
 toolset, which is what the `toolset` scope puts first.
 
   python scripts/run_prefilter_k50.py
-  python scripts/run_prefilter_k50.py --rerankers cross-encoder/ms-marco-MiniLM-L6-v2 --rerank-n 120
+  python scripts/run_prefilter_k50.py --rerankers cross-encoder/ms-marco-MiniLM-L6-v2,BAAI/bge-reranker-base
 """
 
 from __future__ import annotations
@@ -386,13 +390,13 @@ def main() -> None:
     p.add_argument("--base-encoders", default="Lux1997/Tool-Embed-0.6B,mangopy/ToolRet-trained-bge-base-en-v1.5")
     p.add_argument("--extra-encoders", default="mangopy/ToolRet-trained-bge-large-en-v1.5,"
                                                "mangopy/ToolRet-trained-e5-large-v2")
-    p.add_argument("--finetune", default="mangopy/ToolRet-trained-bge-base-en-v1.5",
-                   help="comma list of encoders to fine-tune in-domain (cross-fitted); empty to skip")
+    p.add_argument("--finetune", default="",
+                   help="comma list of encoders to fine-tune in-domain (cross-fitted, 5 trainings; slow on CPU)")
     p.add_argument("--tool-examples", default="apibench",
                    help="`apibench`: Gorilla's training requests as usage examples for gorilla-huggingface tools")
     p.add_argument("--rerankers", default="")
-    p.add_argument("--rerank-n", type=int, default=120)
-    p.add_argument("--rerank-depth", type=int, default=200)
+    p.add_argument("--rerank-n", type=int, default=150)
+    p.add_argument("--rerank-depth", type=int, default=100)
     p.add_argument("--rerank-max-length", type=int, default=192)
     p.add_argument("--max-chars", type=int, default=600)
     p.add_argument("--folds", type=int, default=5)
@@ -446,6 +450,7 @@ def main() -> None:
     if args.tool_examples == "apibench":
         knn, cen, examples_info = tool_query_scores(setup, apibench_queries(setup, args.data), q, base_names,
                                                     args.cache)
+        methods["Gorilla train requests only (centroid)"] = [np.where(np.isfinite(u), u, -10.0) for u in cen]
         for key in dict.fromkeys([base_key, best_dense]):
             tagged = f"{key} + Gorilla train requests"
             methods[f"{tagged} (kNN)"] = [b + rrf_partial(u) for b, u in zip(methods[key], knn)]

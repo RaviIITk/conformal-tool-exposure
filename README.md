@@ -58,7 +58,31 @@ conformal set, alpha = 0.05                   96% coverage, 177 tools on average
 conformal set, alpha = 0.10                   90% coverage, 63 tools (median 28)
 ```
 
-The prefilter is no longer the limit; Mercury's ranking is. On these catalogs several tools can do the job and ToolRet labels only one (e.g. two German zero-shot classifiers, `find_median` vs `calculate_median`), so a 95% set still has to keep most candidates. Full numbers are in [`RESULTS.md`](RESULTS.md) and `results/`.
+The prefilter is no longer the limit; Mercury's ranking is. On these catalogs several tools can do the job and ToolRet labels only one (e.g. two German zero-shot classifiers, `find_median` vs `calculate_median`), so a 95% set still has to keep most candidates.
+
+**Prefilter at K = 50** (RESULTS.md section 8). Ranking each tool also by example requests that used it (as in [Tool2Vec](https://arxiv.org/abs/2409.02141) and [Re-Invoke](https://arxiv.org/abs/2408.01875)) keeps the right tool in the top 50 for 95% of single-tool requests on code + customized:
+
+```
+prefilter (agent's own toolset)                            recall@50   K for 95%
+Tool-Embed + bge-ToolRet, expanded docs (section 7)          0.896        110
+  + ToolRet-trained e5-large                                 0.913         95
+  + Gorilla's training requests per Hugging Face model       0.949         52
+  + similar past requests of the same toolset                0.952         50
+generic cross-encoder rerankers on top (150-step sample)     no gain, or worse
+```
+
+The example requests are Gorilla's training split ([APIBench](https://arxiv.org/abs/2305.15334)), which does not overlap ToolRet's requests; past requests come from other cross-fitting folds, and every fusion weight is chosen on other folds. craft-vqa (0.81) and craft-tabmwp (0.85) remain the weakest datasets. Mercury Decide on the same 50 requests, K = 200 vs K = 50:
+
+```
+                                          K = 200        K = 50
+right tool among the candidates             98%            94%
+Mercury top-1 / top-10                    46% / 72%      44% / 78%
+conformal set, alpha = 0.10               90%, 63 tools  90%, 35 tools
+conformal set, alpha = 0.20               80%, 30 tools  80%, 9 tools
+input tokens per call, median latency     16k, 1.8 s     4.1k, 1.0 s
+```
+
+Same coverage with about half the tools at 90% and a third at 80%, at a quarter of the input tokens; 95% is out of reach on this sample because the prefilter misses 3 of the 50 requests. Full numbers are in [`RESULTS.md`](RESULTS.md) and `results/`.
 
 ## Setup
 
@@ -85,6 +109,8 @@ One decision-model request scores one agent step in either mode. Responses are c
 | Prefilter K sweep: prefilter recall and final results (dense + Mercury Decide) at each K; `--api-k-values` picks the K values Mercury runs at | `.venv/bin/python scripts/run_k_sweep.py --max-steps 59 --single-tool-only --encoder sentence-transformers/multi-qa-MiniLM-L6-cos-v1 --k-values 10,20,30,50,100 --api-k-values 100` | OpenRouter |
 | Prefilter benchmark: recall@K of BM25, embedders and ensembles (`A+B`), expanded tool docs, scopes (`--scopes pooled,routed3,toolset`) (no API calls) | `.venv/bin/python scripts/run_prefilter_bench.py --tag code_customized --categories code,customized --queries query --encoders sentence-transformers/multi-qa-MiniLM-L6-cos-v1,Lux1997/Tool-Embed-0.6B` | no |
 | End to end with the agent's own toolset as the prefilter, then Mercury Decide (one call per step) | `.venv/bin/python scripts/run_deploy_mercury.py --n 50` | OpenRouter |
+| Prefilter at small K: more tool-trained encoders, example requests per tool (Gorilla's training split), past requests, rerankers (`--rerankers`), adaptive K; saves the best ranking to `candidates.npz` (no API calls) | `.venv/bin/python scripts/run_prefilter_k50.py --rerankers cross-encoder/ms-marco-MiniLM-L6-v2,BAAI/bge-reranker-base` | no |
+| Mercury Decide on the small-K prefilter's top 50 | `.venv/bin/python scripts/run_deploy_mercury.py --candidates results/prefilter_k50/candidates.npz --k 50 --k-grid 50,100,150,200 --out results/deploy_mercury_k50` | OpenRouter |
 | Phase 3, RQ3/RQ4: drift, shift, poisoned descriptions | `.venv/bin/python scripts/run_stress.py --source ce` | no (OpenRouter with `--source mercury-choice`) |
 | Phase 2 proxy, RQ2: agent success per token by exposure condition | `.venv/bin/python scripts/run_phase2_proxy.py --max-steps 1500 --n-steps 300` | OpenRouter + agent chat model |
 | Phase 4, RQ5: latency of adding risk questions to the same call | `.venv/bin/python scripts/run_governance.py --max-steps 1500 --n-steps 20` | OpenRouter |
