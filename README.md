@@ -73,18 +73,18 @@ generic cross-encoder rerankers on top (150-step sample)     no gain, or worse
 
 \* ranked within the toolset; section 7's own table gives 0.899.
 
-The example requests are Gorilla's training split ([APIBench](https://arxiv.org/abs/2305.15334)), which shares no exact request with ToolRet (281 near-duplicates, cosine ≥ 0.95, were dropped); past requests come from other cross-fitting folds, and every fusion weight is chosen on other folds. craft-vqa (0.80) and craft-tabmwp (0.84) remain the weakest datasets. Mercury Decide on the same 50 requests, K = 200 vs K = 50 (the K = 50 run used the ranking before a last fix to the past-request gate, which changed 3 of these 50 candidate sets):
+The example requests are Gorilla's training split ([APIBench](https://arxiv.org/abs/2305.15334)), which shares no exact request with ToolRet (281 near-duplicates, cosine ≥ 0.95, were dropped); past requests come from other cross-fitting folds, and every fusion weight is chosen on other folds. craft-vqa (0.80) and craft-tabmwp (0.84) remain the weakest datasets. Mercury Decide on the same 50 requests, K = 200 vs K = 50:
 
 ```
                                           K = 200        K = 50
 right tool among the candidates             98%            94%
-Mercury top-1 / top-10                    46% / 72%      44% / 78%
-conformal set, alpha = 0.10               90%, 63 tools  90%, 35 tools
+Mercury top-1 / top-10                    46% / 72%      46% / 80%
+conformal set, alpha = 0.10               90%, 63 tools  90%, 40 tools
 conformal set, alpha = 0.20               80%, 30 tools  80%, 9 tools
 input tokens per call, median latency     16k, 1.8 s     4.1k, 1.0 s
 ```
 
-Same coverage with about half the tools on average at 90% (the median rises from 28.5 to 39.5) and a third at 80%, at a quarter of the input tokens; 95% is out of reach on this sample because the prefilter misses 3 of the 50 requests. Full numbers are in [`RESULTS.md`](RESULTS.md) and `results/`.
+Same coverage at a quarter of the input tokens, with a third of the tools at 80%; at 90% the mean drops only because sets are capped at 50 (median 49.5 vs 28.5 tools); 95% is out of reach on this sample because the prefilter misses 3 of the 50 requests. Full numbers are in [`RESULTS.md`](RESULTS.md) and `results/`.
 
 ## Setup
 

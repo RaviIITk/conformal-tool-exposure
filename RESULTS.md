@@ -261,23 +261,23 @@ Section 7 needed K = 110 for 95% recall, and Mercury read 200 candidates (about 
 - **Methods were chosen on the same benchmark.** Weights were picked on other folds, so each step's estimate is held out, but which signals to combine was decided by looking at this benchmark.
 - **Code + customized only.** The web catalog was not run.
 
-**Mercury Decide at K = 50.** `scripts/run_deploy_mercury.py --candidates results/prefilter_k50/candidates.npz --k 50` sends the same 50 steps as section 7, now with the top 50 of the new prefilter. Conformal sets are leave-one-out, as before. This run used the ranking before the gate fix above, in which the held-out fold's requests could still influence its past-request gate. In the final ranking 13 of these 50 steps have a different candidate order and 3 a different candidate set; recall on the sample is 0.94 in both.
+**Mercury Decide at K = 50.** `scripts/run_deploy_mercury.py --candidates results/prefilter_k50/candidates.npz --k 50` sends the same 50 steps as section 7, now with the top 50 of the new prefilter. Conformal sets are leave-one-out, as before.
 
 | same 50 single-tool steps | K = 200 (section 7) | K = 50 (this section) |
 |---|---|---|
 | right tool among the candidates | 0.98 (0.971 held out) | 0.94 (0.952 held out) |
-| Mercury top-1 / top-5 / top-10 / top-20 | 0.46 / 0.60 / 0.72 / 0.80 | 0.44 / 0.66 / 0.78 / 0.86 |
+| Mercury top-1 / top-5 / top-10 / top-20 | 0.46 / 0.60 / 0.72 / 0.80 | 0.46 / 0.66 / 0.80 / 0.86 |
 | conformal set at α = 0.05: coverage, avg size | 0.96, 177 tools | 0.94, 50 tools (all candidates) |
-| α = 0.10 | 0.90, 63 tools (median 28.5) | **0.90, 35 tools** (median 39.5) |
+| α = 0.10 | 0.90, 63 tools (median 28.5) | **0.90, 40 tools** (median 49.5) |
 | α = 0.20 | 0.80, 30 tools (median 6.5) | **0.80, 9.3 tools** (median 3) |
 | input tokens per call, median latency | about 16k, 1.8 s | **about 4.1k, 1.0 s** |
-| prefilter scores alone (softmax, no Mercury): top-1, α = 0.10 set | 0.38, 85 tools | 0.44, 39 tools |
+| prefilter scores alone (softmax, no Mercury): top-1, α = 0.10 set | 0.38, 85 tools | 0.42, 39 tools |
 
-- **Same coverage, smaller sets on average, a quarter of the cost.** At α = 0.10 and 0.20 the K = 50 sets reach the same coverage with about half and a third of the tools on average. At α = 0.10 the median set grows, though, from 28.5 to 39.5 tools: the mean falls because no set can exceed 50. Each call reads 74% fewer tokens.
+- **Same coverage, a quarter of the cost; smaller sets only at α = 0.20.** At α = 0.20 the K = 50 sets reach the same coverage with a third of the tools (9.3 vs 30, median 3 vs 6.5). At α = 0.10 the mean falls from 63 to 40 only because no set can exceed 50: the median set is 49.5 tools, almost every candidate, against 28.5 at K = 200. Each call reads 74% fewer tokens.
 - **α = 0.05 is out of reach on this sample.** The prefilter misses 3 of the 50 steps, so coverage stops at 0.94; on the held-out steps it is 0.952.
-- **Mercury's accuracy on the steps it sees is unchanged.** Top-1 is 0.47 in both runs when the right tool is among the candidates. Top-10 and top-20 rise by 3 steps each with fewer distractors.
-- **The new prefilter alone now ranks as well as Mercury at top-1** (0.44 for both on these 50 steps), and its α = 0.10 set is 39 tools.
-- **Confidence is low.** At n = 50 a difference of 0.02 is one step. None of the top-k or coverage differences (3 steps or fewer) is significant; the set-size differences were not tested.
+- **Mercury ranks slightly better with fewer distractors.** When the right tool is among the candidates, top-1 is 0.49 at K = 50 (23 of 47) against 0.47 at K = 200 (23 of 49): the same 23 steps, out of fewer reached. Top-5, top-10 and top-20 rise by 3, 4 and 3 steps.
+- **The new prefilter alone is close to Mercury.** Top-1 is 0.42 against 0.46 (two steps), and its α = 0.10 set is the same size (39 vs 40 tools). Mercury's gain shows at α = 0.20: 9.3 tools against 20 for the prefilter scores alone.
+- **Confidence is low.** At n = 50 a difference of 0.02 is one step. None of the top-k or coverage differences (4 steps or fewer) is significant; the set-size differences were not tested.
 
 ## 9. Stress tests (RQ3/RQ4), hybrid score source, ~1,080 single-tool test steps
 
